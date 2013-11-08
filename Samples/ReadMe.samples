@@ -1,0 +1,40 @@
+$Id: ReadMe.samples,v 1.1 2005/02/17 22:47:24 jeffreyphillips Exp $
+
+libcurl.NET 1.3 Samples (c) 2004. 2005 Jeff Phillips jeff@jeffp.net
+
+These are trivial examples to demonstrate the basic functionality
+of libcurl.NET.
+
+** BEGIN IMPORTANT NOTE **
+
+Unless you place the CurlSharp bin directory (the one that
+contains CurlSharp.dll) into your PATH, you'll need to run
+these samples from the bin directory. This is because these
+are private assemblies. You are, however, free to modify
+CurlSharp as you wish to make it a public assembly accessible
+from the GAC.
+
+** END IMPORTANT NOTE **
+
+The samples include:
+
+-- BookPost: A simple POST to look up Topology books at amazon.com.
+
+-- EasyGet: Retrieve a web page and echo it to the console.
+
+-- FileUpload: Demonstrate RFC 1867 multi-part upload.
+
+-- Headers: Dump headers, demonstrating HEADERFUNCTION delegate.
+
+-- InfoDemo: Dump CURLINFO data received after a download.
+
+-- MultiDemo: Retrieve two URLs using the Multi interface.
+
+-- ShareDemo: Retrieve two URLs in separate threads, with synchronized
+              access to DNS and cookie data via the Share object.
+
+-- SSLGet: Retrive an https web page. Try https://sourceforge.net.
+
+-- Upload: Upload a file to an FTP site.
+
+-- VersionData: Dump internal cURL version data.
