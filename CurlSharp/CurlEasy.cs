@@ -2136,21 +2136,19 @@ namespace CurlSharp
             return bytes; // keep going
         }
 
-        private int _curlSslCtxCallback(IntPtr ctx, IntPtr pUserdata)
+        private int _curlSslCtxCallback(IntPtr ctx, IntPtr parm)
         {
-            var userdata = getObject(pUserdata);
             if (_pfCurlSslContext == null)
                 return (int) CurlCode.Ok; // keep going
             var context = new CurlSslContext(ctx);
-            return (int) _pfCurlSslContext(context, userdata);
+            return (int) _pfCurlSslContext(context, _sslContextData);
         }
 
-        private CurlIoError _curlIoctlCallback(CurlIoCommand cmd, IntPtr pUserdata)
+        private CurlIoError _curlIoctlCallback(CurlIoCommand cmd, IntPtr parm)
         {
-            var userdata = getObject(pUserdata);
-            if (_pfCurlIoctl == null || userdata == null)
+            if (_pfCurlIoctl == null || _ioctlData == null)
                 return CurlIoError.UnknownCommand;
-            return _pfCurlIoctl(cmd, userdata);
+            return _pfCurlIoctl(cmd, _ioctlData);
         }
 #endif
     }

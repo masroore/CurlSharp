@@ -19,7 +19,7 @@ internal class SSLGet
                 easy.WriteFunction = OnWriteData;
                 easy.SslContextFunction = OnSslContext;
                 easy.Url = args.Count() > 1 ? args[0] : "https://www.amazon.com";
-                easy.CaInfo = "ca-bundle.crt";
+                easy.CaInfo = "curl-ca-bundle.crt";
 
                 easy.Perform();
             }
