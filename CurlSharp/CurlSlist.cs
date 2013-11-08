@@ -18,6 +18,8 @@
  **************************************************************************/
 
 using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace CurlSharp
 {
@@ -27,9 +29,20 @@ namespace CurlSharp
     ///     <see cref="CurlEasy.SetOpt" /> with <see cref="CurlOption.Quote" />
     ///     as the option.
     /// </summary>
-    public class CurlSlist
+    public class CurlSlist : IDisposable
     {
-        private IntPtr _pStringList;
+#if !USE_LIBCURLSHIM
+        [StructLayout(LayoutKind.Sequential)]
+        private class curl_slist
+        {
+            /// char*
+            [MarshalAs(UnmanagedType.LPStr)] public string data;
+
+            /// curl_slist*
+            public IntPtr next;
+        }
+#endif
+        private IntPtr _handle;
 
         /// <summary>
         ///     Constructor
@@ -41,7 +54,40 @@ namespace CurlSharp
         public CurlSlist()
         {
             Curl.EnsureCurl();
-            _pStringList = IntPtr.Zero;
+            _handle = IntPtr.Zero;
+        }
+
+        public CurlSlist(IntPtr handle)
+        {
+            _handle = handle;
+        }
+
+        /// <summary>
+        ///     Read-only copy of the strings stored in the SList
+        /// </summary>
+        public List<string> Strings
+        {
+            get
+            {
+                if (_handle == IntPtr.Zero)
+                    return null;
+                var strings = new List<string>();
+
+#if !USE_LIBCURLSHIM
+                var slist = new curl_slist();
+                Marshal.PtrToStructure(_handle, slist);
+
+                while (true)
+                {
+                    strings.Add(slist.data);
+                    if (slist.next != IntPtr.Zero)
+                        Marshal.PtrToStructure(slist.next, slist);
+                    else
+                        break;
+                }
+#endif
+                return strings;
+            }
         }
 
         /// <summary>
@@ -58,32 +104,39 @@ namespace CurlSharp
         /// <param name="str">The <c>string</c> to append.</param>
         public void Append(string str)
         {
-            _pStringList = NativeMethods.curl_shim_add_string_to_slist(_pStringList, str);
+#if USE_LIBCURLSHIM
+            _handle = NativeMethods.curl_shim_add_string_to_slist(_handle, str);
+#else
+            _handle = NativeMethods.curl_slist_append(_handle, str);
+#endif
         }
 
         /// <summary>
         ///     Free all internal strings.
         /// </summary>
-        public void FreeAll()
+        public void Dispose()
         {
             GC.SuppressFinalize(this);
             Dispose(true);
         }
 
-        internal IntPtr GetHandle()
+        internal IntPtr Handle
         {
-            return _pStringList;
+            get { return _handle; }
         }
 
         private void Dispose(bool disposing)
         {
             lock (this)
             {
-                // no if (disposing) pattern to clean up managed objects
-                if (_pStringList != IntPtr.Zero)
+                if (_handle != IntPtr.Zero)
                 {
-                    NativeMethods.curl_shim_free_slist(_pStringList);
-                    _pStringList = IntPtr.Zero;
+#if USE_LIBCURLSHIM
+                    NativeMethods.curl_shim_free_slist(_handle);
+#else
+                    NativeMethods.curl_slist_free_all(_handle);
+#endif
+                    _handle = IntPtr.Zero;
                 }
             }
         }

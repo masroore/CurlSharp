@@ -1,10 +1,8 @@
-// $Id: InfoDemo.cs,v 1.1 2005/02/17 22:47:24 jeffreyphillips Exp $
 // InfoDemo.cs - demonstrate CurlEasy.GetInfo
-// Compile with "csc /r:../bin/CurlSharp.dll /out:../bin/InfoDemo.exe InfoDemo.cs"
-
 // usage: InfoDemo url, e.g. InfoDemo http://www.google.com
 
 using System;
+using System.Linq;
 using CurlSharp;
 
 namespace InfoDemo
@@ -15,11 +13,11 @@ namespace InfoDemo
         {
             try
             {
-                Curl.GlobalInit((int) CurlInitFlag.All);
+                Curl.GlobalInit(CurlInitFlag.All);
 
                 using (var easy = new CurlEasy())
                 {
-                    easy.Url = args[0];
+                    easy.Url = args.Count() > 1 ? args[0] : "http://www.amazon.com";
                     easy.Private = "Private string";
                     easy.Filetime = true;
                     easy.Perform();

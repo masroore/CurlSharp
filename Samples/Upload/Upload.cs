@@ -1,7 +1,4 @@
-// $Id: Upload.cs,v 1.1 2005/02/17 22:47:24 jeffreyphillips Exp $
 // Upload.cs - demonstrate ftp upload capability
-// Compile with "csc /r:../bin/CurlSharp.dll /out:../bin/Upload.exe Upload.cs"
-
 // usage: Upload srcFile destUrl username password
 // e.g. Upload myFile.dat ftp://ftp.myftp.com me myPassword
 
@@ -17,7 +14,7 @@ namespace Upload
         {
             try
             {
-                Curl.GlobalInit((int) CurlInitFlag.All);
+                Curl.GlobalInit(CurlInitFlag.All);
 
                 using (var fs = new FileStream(args[0], FileMode.Open, FileAccess.Read, FileShare.Read))
                 {

@@ -1,10 +1,8 @@
-// $Id: SSLGet.cs,v 1.1 2005/02/17 22:47:24 jeffreyphillips Exp $
 // SSLGet.cs - demonstrate Ssl get capability
-// Compile with "csc /r:../bin/CurlSharp.dll /out:../bin/SSLGet.exe SSLGet.cs"
-
 // usage: SSLGet url, e.g. SSLGet https://sourceforge.net
 
 using System;
+using System.Linq;
 using System.Text;
 using CurlSharp;
 
@@ -14,13 +12,13 @@ internal class SSLGet
     {
         try
         {
-            Curl.GlobalInit((int) CurlInitFlag.All);
+            Curl.GlobalInit(CurlInitFlag.All);
 
             using (var easy = new CurlEasy())
             {
                 easy.WriteFunction = OnWriteData;
                 easy.SslContextFunction = OnSslContext;
-                easy.Url = args[0];
+                easy.Url = args.Count() > 1 ? args[0] : "https://www.amazon.com";
                 easy.CaInfo = "ca-bundle.crt";
 
                 easy.Perform();

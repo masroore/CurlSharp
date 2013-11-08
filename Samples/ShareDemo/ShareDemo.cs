@@ -1,7 +1,4 @@
-// $Id: ShareDemo.cs,v 1.1 2005/02/17 22:47:24 jeffreyphillips Exp $
 // ShareDemo.cs - demonstrate share capability
-// Compile with "csc /r:../bin/CurlSharp.dll /out:../bin/ShareDemo.exe ShareDemo.cs"
-
 // usage: ShareDemo url1 url2, e.g. ShareDemo http://www.google.com http://www.yahoo.com
 
 using System;
@@ -20,7 +17,7 @@ namespace ShareDemo
         {
             try
             {
-                Curl.GlobalInit((int) CurlInitFlag.All);
+                Curl.GlobalInit(CurlInitFlag.All);
 
                 dnsLock = new Object();
                 cookieLock = new Object();

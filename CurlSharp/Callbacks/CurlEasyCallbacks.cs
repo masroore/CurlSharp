@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 
 namespace CurlSharp
 {
@@ -172,7 +173,7 @@ namespace CurlSharp
     ///     Your implementation should return the number of bytes (not
     ///     characters) written to <c>buf</c>. Return 0 to abort the transfer.
     /// </remarks>
-    public delegate int CurlReadCallback(byte[] buf, int size, int nmemb, Object extraData);
+    public delegate int CurlReadCallback([Out] byte[] buf, int size, int nmemb, Object extraData);
 
     /// <summary>
     ///     Called when cURL wants to report an Ssl event.

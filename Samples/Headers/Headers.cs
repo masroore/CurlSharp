@@ -1,10 +1,8 @@
-// $Id: Headers.cs,v 1.1 2005/02/17 22:47:24 jeffreyphillips Exp $
 // Headers.cs - dump headers
-// Compile with "csc /r:../bin//CurlSharp.dll /out:../bin/Headers.exe Headers.cs"
-
 // usage: Headers url, e.g. Headers http://www.google.com
 
 using System;
+using System.Linq;
 using System.Text;
 using CurlSharp;
 
@@ -16,11 +14,12 @@ namespace Headers
         {
             try
             {
-                Curl.GlobalInit((int) CurlInitFlag.All);
+                Curl.GlobalInit(CurlInitFlag.All);
 
                 using (var easy = new CurlEasy())
                 {
-                    easy.Url = args[0];
+                    easy.Url = args.Count() > 1 ? args[0] : "http://www.amazon.com";
+                    easy.HeaderData = "headerContext";
                     easy.HeaderFunction = OnHeaderData;
                     easy.Perform();
                 }
@@ -33,9 +32,9 @@ namespace Headers
             }
         }
 
-        public static Int32 OnHeaderData(Byte[] buf, Int32 size, Int32 nmemb,
-            Object extraData)
+        public static Int32 OnHeaderData(Byte[] buf, Int32 size, Int32 nmemb, Object extraData)
         {
+            var userData = (string) extraData;
             Console.Write(Encoding.UTF8.GetString(buf));
             return size*nmemb;
         }

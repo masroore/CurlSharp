@@ -15,7 +15,7 @@ namespace WinSamples
         private void buttonGetSource_Click(object sender, EventArgs e)
         {
             textBoxSource.Clear();
-            Curl.GlobalInit((int) CurlInitFlag.All);
+            Curl.GlobalInit(CurlInitFlag.All);
 
             using (var easy = new CurlEasy())
             {

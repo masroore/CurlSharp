@@ -296,7 +296,7 @@ namespace CurlSharp
                         if (s == null)
                             retCode = CurlFormCode.UnknownOption;
                         else
-                            aPointers[ptrArrayPos++] = s.GetHandle();
+                            aPointers[ptrArrayPos++] = s.Handle;
                         break;
                     }
 
@@ -330,8 +330,9 @@ namespace CurlSharp
             // if we're OK here, call into curl
             if (retCode == CurlFormCode.Ok)
             {
-                retCode = (CurlFormCode) NativeMethods.curl_shim_formadd(
-                    _pItems, aPointers, nRealCount);
+#if USE_LIBCURLSHIM
+                retCode = (CurlFormCode) NativeMethods.curl_shim_formadd(_pItems, aPointers, nRealCount);
+#endif
             }
 
             // unmarshal native allocations

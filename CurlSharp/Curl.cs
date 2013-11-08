@@ -70,11 +70,13 @@ namespace CurlSharp
         ///     A <see cref="CurlCode" />, hopefully
         ///     <c>CurlCode.Ok</c>.
         /// </returns>
-        public static CurlCode GlobalInit(int flags)
+        public static CurlCode GlobalInit(CurlInitFlag flags)
         {
-            _initCode = NativeMethods.curl_global_init(flags);
+            _initCode = NativeMethods.curl_global_init((int)flags);
+#if USE_LIBCURLSHIM
             if (_initCode == CurlCode.Ok)
                 NativeMethods.curl_shim_initialize();
+#endif
             return _initCode;
         }
 
@@ -89,7 +91,9 @@ namespace CurlSharp
         {
             if (_initCode == CurlCode.Ok)
             {
+#if USE_LIBCURLSHIM
                 NativeMethods.curl_shim_cleanup();
+#endif
                 NativeMethods.curl_global_cleanup();
                 _initCode = CurlCode.FailedInit;
             }

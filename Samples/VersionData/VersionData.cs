@@ -1,7 +1,4 @@
-// $Id: VersionData.cs,v 1.1 2005/02/17 22:47:24 jeffreyphillips Exp $
 // VersionData.cs - dump cURL version data
-// Compile with "csc /r:../bin/CurlSharp.dll /out:../bin/VersionData.exe VersionData.cs"
-
 // usage: VersionData
 
 using System;
@@ -13,9 +10,10 @@ internal class VersionData
     {
         try
         {
-            Curl.GlobalInit((int) CurlInitFlag.All);
+            Curl.GlobalInit(CurlInitFlag.All);
 
             var vd = Curl.GetVersionInfo(CurlVersion.Now);
+#if USE_LIBCURLSHIM
             Console.WriteLine("           Age: {0}", vd.Age);
             Console.WriteLine("Version String: {0}", vd.Version);
             Console.WriteLine("Version Number: {0}", vd.VersionNum);
@@ -32,7 +30,7 @@ internal class VersionData
             var protocols = vd.Protocols;
             foreach (var prot in protocols)
                 Console.WriteLine("  {0}", prot);
-
+#endif
             Curl.GlobalCleanup();
         }
         catch (Exception ex)

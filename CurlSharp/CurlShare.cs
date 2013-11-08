@@ -33,8 +33,10 @@ namespace CurlSharp
         private GCHandle _hThis; // for handle extraction
         private CurlShareCode _lastErrorCode;
         private string _lastErrorDescription;
-        private NativeMethods.CURLSH_LOCK_DELEGATE _pDelLock; // lock delegate
-        private NativeMethods.CURLSH_UNLOCK_DELEGATE _pDelUnlock; // unlock delegate
+#if USE_LIBCURLSHIM
+        private NativeMethods._ShimLockCallback _pDelLock; // lock delegate
+        private NativeMethods._ShimUnlockCallback _pDelUnlock; // unlock delegate
+#endif
         private IntPtr _pShare; // share handle
         private CurlShareLockCallback _pfLock; // client lock delegate
         private CurlShareUnlockCallback _pfUnlock; // client unlock delegate
@@ -216,7 +218,9 @@ namespace CurlSharp
                 // if (disposing) cleanup managed objects
                 if (_pShare != IntPtr.Zero)
                 {
+#if USE_LIBCURLSHIM
                     NativeMethods.curl_shim_cleanup_share_delegates(_pShare);
+#endif
                     NativeMethods.curl_share_cleanup(_pShare);
                     _hThis.Free();
                     _ptrThis = IntPtr.Zero;
@@ -238,11 +242,13 @@ namespace CurlSharp
 
         private void installDelegates()
         {
+            _hThis = GCHandle.Alloc(this);
+            _ptrThis = (IntPtr)_hThis;
+#if USE_LIBCURLSHIM
             _pDelLock = LockDelegate;
             _pDelUnlock = UnlockDelegate;
-            _hThis = GCHandle.Alloc(this);
-            _ptrThis = (IntPtr) _hThis;
             NativeMethods.curl_shim_install_share_delegates(_pShare, _ptrThis, _pDelLock, _pDelUnlock);
+#endif
         }
 
         internal static void LockDelegate(int data, int access, IntPtr userPtr)

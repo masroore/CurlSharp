@@ -41,8 +41,9 @@ namespace CurlSharp
         private const int CURLINFO_LONG = 0x200000;
         private const int CURLINFO_DOUBLE = 0x300000;
         private const int CURLINFO_SLIST = 0x400000;
-
+#if USE_LIBCURLSHIM
         private readonly IntPtr _pMyStrings;
+#endif
         private bool _autoReferer;
         private int _bufferSize;
         private string _caInfo;
@@ -101,13 +102,24 @@ namespace CurlSharp
         private bool _noProgress;
         private bool _noSignal;
         private IntPtr _pCurl;
-        private NativeMethods.CURL_DEBUG_DELEGATE _pcbDebug;
-        private NativeMethods.CURL_HEADER_DELEGATE _pcbHeader;
-        private NativeMethods.CURL_IOCTL_DELEGATE _pcbIoctl;
-        private NativeMethods.CURL_PROGRESS_DELEGATE _pcbProgress;
-        private NativeMethods.CURL_READ_DELEGATE _pcbRead;
-        private NativeMethods.CURL_SSL_CTX_DELEGATE _pcbSslCtx;
-        private NativeMethods.CURL_WRITE_DELEGATE _pcbWrite;
+#if USE_LIBCURLSHIM
+        private NativeMethods._ShimDebugCallback _pcbDebug;
+        private NativeMethods._ShimHeaderCallback _pcbHeader;
+        private NativeMethods._ShimIoctlCallback _pcbIoctl;
+        private NativeMethods._ShimProgressCallback _pcbProgress;
+        private NativeMethods._ShimReadCallback _pcbRead;
+        private NativeMethods._ShimSslCtxCallback _pcbSslCtx;
+        private NativeMethods._ShimWriteCallback _pcbWrite;
+        private IntPtr _ptrThis;
+#else
+        private NativeMethods._CurlGenericCallback _pcbWrite;
+        private NativeMethods._CurlGenericCallback _pcbRead;
+        private NativeMethods._CurlGenericCallback _pcbHeader;
+        private NativeMethods._CurlDebugCallback _pcbDebug;
+        private NativeMethods._CurlIoctlCallback _pcbIoctl;
+        private NativeMethods._CurlProgressCallback _pcbProgress;
+        private NativeMethods._CurlSslCtxCallback _pcbSslCtx;
+#endif
         private CurlDebugCallback _pfCurlDebug;
         private CurlHeaderCallback _pfCurlHeader;
         private CurlIoctlCallback _pfCurlIoctl;
@@ -124,7 +136,6 @@ namespace CurlSharp
         private string _proxy;
         private int _proxyPort;
         private string _proxyUserPwd;
-        private IntPtr _ptrThis;
         private bool _put;
         private string _randomFile;
         private string _range;
@@ -171,7 +182,9 @@ namespace CurlSharp
             _pCurl = NativeMethods.curl_easy_init();
             ensureHandle();
             NativeMethods.curl_easy_setopt(_pCurl, CurlOption.NoProgress, IntPtr.Zero);
+#if USE_LIBCURLSHIM
             _pMyStrings = NativeMethods.curl_shim_alloc_strings();
+#endif
             resetPrivateVariables();
             installDelegates();
         }
@@ -180,7 +193,9 @@ namespace CurlSharp
         {
             _pCurl = NativeMethods.curl_easy_duphandle(from._pCurl);
             ensureHandle();
+#if USE_LIBCURLSHIM
             _pMyStrings = NativeMethods.curl_shim_alloc_strings();
+#endif
             resetPrivateVariables();
             installDelegates();
         }
@@ -194,43 +209,187 @@ namespace CurlSharp
         public object WriteData
         {
             get { return _writeData; }
-            set { _writeData = value; }
+            set
+            {
+                _writeData = value;
+#if !USE_LIBCURLSHIM
+                setWriteData(value);
+#endif
+            }
         }
+
+#if !USE_LIBCURLSHIM
+        private IntPtr _curlWriteData = IntPtr.Zero;
+
+        /// <summary>
+        ///     Object to pass to OnWriteCallback.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        private CurlCode setWriteData(object data)
+        {
+            _curlWriteData = getHandle(data);
+            return setCurlOpt(_curlWriteData, CurlOption.WriteData);
+        }
+
+        private CurlCode setCurlOpt(IntPtr data, CurlOption opt)
+        {
+            var retCode = NativeMethods.curl_easy_setopt(_pCurl, opt, data);
+            setLastError(retCode, opt);
+            return retCode;
+        }
+
+        private IntPtr _curlReadData = IntPtr.Zero;
+
+        /// <summary>
+        ///     Object to pass to OnReadCallback.
+        ///     Use <see cref="getObject" /> to convert the passed IntPtr back into the object, then cast.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        private CurlCode setReadData(object data)
+        {
+            _curlReadData = getHandle(data);
+            return setCurlOpt(_curlReadData, CurlOption.ReadData);
+        }
+
+        private IntPtr _curlProgressData = IntPtr.Zero;
+
+        /// <summary>
+        ///     Object to pass to OnProgressCallback.
+        ///     Use <see cref="getObject" /> to convert the passed IntPtr back into the object, then cast.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        private CurlCode setProgressData(object data)
+        {
+            _curlProgressData = getHandle(data);
+            return setCurlOpt(_curlProgressData, CurlOption.ProgressData);
+        }
+
+        private IntPtr _curlHeaderData = IntPtr.Zero;
+
+        /// <summary>
+        ///     Object to pass to OnHeaderCallback.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        private CurlCode setHeaderData(object data)
+        {
+            _curlHeaderData = getHandle(data);
+            return setCurlOpt(_curlHeaderData, CurlOption.HeaderData);
+        }
+
+        private IntPtr _curlDebugData = IntPtr.Zero;
+
+        /// <summary>
+        ///     Object to pass to OnDebugCallback.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        private CurlCode setDebugData(object data)
+        {
+            _curlDebugData = getHandle(data);
+            return setCurlOpt(_curlDebugData, CurlOption.DebugData);
+        }
+
+        private IntPtr _curlSslCtxData = IntPtr.Zero;
+
+        /// <summary>
+        ///     Object to pass to OnSslCtxCallback.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        private CurlCode setSslCtxData(object data)
+        {
+            _curlSslCtxData = getHandle(data);
+            return setCurlOpt(_curlSslCtxData, CurlOption.SslCtxData);
+        }
+
+        private IntPtr _curlIoctlData = IntPtr.Zero;
+
+        /// <summary>
+        ///     Object to pass to OnIoctlCallback.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        private CurlCode setIoctlData(object data)
+        {
+            _curlIoctlData = getHandle(data);
+            return setCurlOpt(_curlIoctlData, CurlOption.IoctlData);
+        }
+#endif
 
         public object ReadData
         {
             get { return _readData; }
-            set { _readData = value; }
+            set
+            {
+                _readData = value;
+#if !USE_LIBCURLSHIM
+                setReadData(value);
+#endif
+            }
         }
 
         public object ProgressData
         {
             get { return _progressData; }
-            set { _progressData = value; }
+            set
+            {
+                _progressData = value;
+#if !USE_LIBCURLSHIM
+                setProgressData(value);
+#endif
+            }
         }
 
         public object DebugData
         {
             get { return _debugData; }
-            set { _debugData = value; }
+            set
+            {
+                _debugData = value;
+#if !USE_LIBCURLSHIM
+                setDebugData(value);
+#endif
+            }
         }
 
         public object HeaderData
         {
             get { return _headerData; }
-            set { _headerData = value; }
+            set
+            {
+                _headerData = value;
+#if !USE_LIBCURLSHIM
+                setHeaderData(value);
+#endif
+            }
         }
 
         public object SslCtxData
         {
             get { return _sslContextData; }
-            set { _sslContextData = value; }
+            set
+            {
+                _sslContextData = value;
+#if !USE_LIBCURLSHIM
+                setSslCtxData(value);
+#endif
+            }
         }
 
         public object IoctlData
         {
             get { return _ioctlData; }
-            set { _ioctlData = value; }
+            set
+            {
+                _ioctlData = value;
+#if !USE_LIBCURLSHIM
+                setIoctlData(value);
+#endif
+            }
         }
 
         public CurlShare Share
@@ -992,19 +1151,26 @@ namespace CurlSharp
 
         private void resetPrivateVariables()
         {
-            _pfCurlWrite = null;
             _privateData = null;
+
+            _pfCurlWrite = null;
             _writeData = null;
+
             _pfCurlRead = null;
             _readData = null;
+
             _pfCurlProgress = null;
             _progressData = null;
+
             _pfCurlDebug = null;
             _debugData = null;
+
             _pfCurlHeader = null;
             _headerData = null;
+
             _pfCurlSslContext = null;
             _sslContextData = null;
+
             _pfCurlIoctl = null;
             _ioctlData = null;
         }
@@ -1022,7 +1188,7 @@ namespace CurlSharp
         private CurlCode setSlistObject(CurlOption option, CurlSlist slist)
         {
             ensureHandle();
-            var retCode = NativeMethods.curl_easy_setopt(_pCurl, option, slist == null ? IntPtr.Zero : slist.GetHandle());
+            var retCode = NativeMethods.curl_easy_setopt(_pCurl, option, slist == null ? IntPtr.Zero : slist.Handle);
             setLastError(retCode, option);
             return retCode;
         }
@@ -1086,9 +1252,20 @@ namespace CurlSharp
                 // free native resources if there are any.
                 if (_pCurl != IntPtr.Zero)
                 {
+#if USE_LIBCURLSHIM
                     NativeMethods.curl_shim_cleanup_delegates(_ptrThis);
-                    NativeMethods.curl_easy_cleanup(_pCurl);
                     NativeMethods.curl_shim_free_strings(_pMyStrings);
+#else
+                    freeHandle(ref _curlWriteData);
+                    freeHandle(ref _curlReadData);
+                    freeHandle(ref _curlDebugData);
+                    freeHandle(ref _curlProgressData);
+                    freeHandle(ref _curlHeaderData);
+                    freeHandle(ref _curlIoctlData);
+                    freeHandle(ref _curlSslCtxData);
+#endif
+                    NativeMethods.curl_easy_cleanup(_pCurl);
+
                     _hThis.Free();
                     _pCurl = IntPtr.Zero;
                 }
@@ -1101,10 +1278,13 @@ namespace CurlSharp
                 throw new NullReferenceException("No internal easy handle");
         }
 
-        internal IntPtr GetHandle()
+        internal IntPtr Handle
         {
-            ensureHandle();
-            return _pCurl;
+            get
+            {
+                ensureHandle();
+                return _pCurl;
+            }
         }
 
         /// <summary>
@@ -1124,8 +1304,7 @@ namespace CurlSharp
         {
             ensureHandle();
             field = value;
-            var i = Convert.ToInt32(value);
-            setLastError(NativeMethods.curl_easy_setopt(_pCurl, option, (IntPtr) i), option);
+            setLastError(NativeMethods.curl_easy_setopt(_pCurl, option, (IntPtr) Convert.ToInt32(value)), option);
         }
 
         private void setIntOption(CurlOption option, ref int field, int value)
@@ -1152,9 +1331,13 @@ namespace CurlSharp
             }
             else
             {
+#if USE_LIBCURLSHIM
                 var pCurlStr = NativeMethods.curl_shim_add_string(_pMyStrings, value);
                 if (pCurlStr != IntPtr.Zero)
                     setLastError(NativeMethods.curl_easy_setopt(_pCurl, option, pCurlStr), option);
+#else
+                setLastError(NativeMethods.curl_easy_setopt_str(_pCurl, option, value), option);
+#endif
             }
         }
 
@@ -1303,17 +1486,58 @@ namespace CurlSharp
                     {
                         retCode = NativeMethods.curl_easy_setopt(_pCurl, option, IntPtr.Zero);
                     }
-                    else
-                    {
-                        var pCurlStr = NativeMethods.curl_shim_add_string(_pMyStrings, s);
-                        if (pCurlStr != IntPtr.Zero)
-                            retCode = NativeMethods.curl_easy_setopt(_pCurl, option, pCurlStr);
-                    }
                     break;
                 }
             }
             return retCode;
         }
+
+#if !USE_LIBCURLSHIM
+
+        #region Object pinning support
+
+        /// <summary>
+        ///     Free the pinned object
+        /// </summary>
+        /// <param name="handle"></param>
+        private void freeHandle(ref IntPtr handle)
+        {
+            if (handle == IntPtr.Zero)
+                return;
+            var handleCallback = GCHandle.FromIntPtr(handle);
+            handleCallback.Free();
+            handle = IntPtr.Zero;
+        }
+
+        /// <summary>
+        ///     Pin the object in memory so the C function can find it
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        private static IntPtr getHandle(object obj)
+        {
+            if (obj == null)
+                return IntPtr.Zero;
+            return GCHandle.ToIntPtr(GCHandle.Alloc(obj, GCHandleType.Pinned));
+        }
+
+        /// <summary>
+        ///     Returns the object passed to a Set...Data function.
+        ///     Cast back to the original object.
+        /// </summary>
+        /// <param name="userdata"></param>
+        /// <returns></returns>
+        private static object getObject(IntPtr userdata)
+        {
+            if (userdata == IntPtr.Zero)
+                return null;
+            var handle = GCHandle.FromIntPtr(userdata);
+            return handle.Target;
+        }
+
+        #endregion
+
+#endif
 
         private CurlCode setFunctionOptions(CurlOption option, object pfn)
         {
@@ -1557,8 +1781,12 @@ namespace CurlSharp
             slist = new CurlSlist();
             while (ptr != IntPtr.Zero)
             {
+#if USE_LIBCURLSHIM
                 ptr = NativeMethods.curl_shim_get_string_from_slist(ptr, ref ptrs);
                 slist.Append(Marshal.PtrToStringAnsi(ptrs));
+#else
+                //TODO: implement
+#endif
             }
             return retCode;
         }
@@ -1686,12 +1914,6 @@ namespace CurlSharp
             {
                 if ((int) ptr < 0)
                     dt = new DateTime(0);
-                else
-                {
-                    int yy = 0, mm = 0, dd = 0, hh = 0, mn = 0, ss = 0;
-                    NativeMethods.curl_shim_get_file_time((int) ptr, ref yy, ref mm, ref dd, ref hh, ref mn, ref ss);
-                    dt = new DateTime(yy, mm, dd, hh, mn, ss);
-                }
             }
             return retCode;
         }
@@ -1700,24 +1922,60 @@ namespace CurlSharp
         private void installDelegates()
         {
             ensureHandle();
-            _pcbWrite = _ShimWriteCallback;
-            _pcbRead = _ShimReadCallback;
-            _pcbProgress = _ShimProgressCallback;
-            _pcbDebug = _ShimDebugCallback;
-            _pcbHeader = _ShimHeaderCallback;
-            _pcbSslCtx = _ShimSslCtxCallback;
-            _pcbIoctl = _ShimIoctlCallback;
             _hThis = GCHandle.Alloc(this);
-            _ptrThis = (IntPtr) _hThis;
+#if USE_LIBCURLSHIM
+            _pcbWrite = _shimWriteCallback;
+            _pcbRead = _shimReadCallback;
+            _pcbProgress = _shimProgressCallback;
+            _pcbDebug = _shimDebugCallback;
+            _pcbHeader = _shimHeaderCallback;
+            _pcbSslCtx = _shimSslCtxCallback;
+            _pcbIoctl = _shimIoctlCallback;
+            _ptrThis = (IntPtr)_hThis;
             NativeMethods.curl_shim_install_delegates(
                 _pCurl, _ptrThis,
                 _pcbWrite, _pcbRead, _pcbProgress,
                 _pcbDebug, _pcbHeader, _pcbSslCtx,
                 _pcbIoctl);
+#else
+            _pcbWrite = _curlWriteCallback;
+            _pcbRead = _curlReadCallback;
+            _pcbProgress = _curlProgressCallback;
+            _pcbDebug = _curlDebugCallback;
+            _pcbHeader = _curlHeaderCallback;
+            _pcbSslCtx = _curlSslCtxCallback;
+            _pcbIoctl = _curlIoctlCallback;
+
+            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.WriteFunction, _pcbWrite),
+                CurlOption.WriteFunction);
+            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.ReadFunction, _pcbRead),
+                CurlOption.ReadFunction);
+            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.ProgressFunction, _pcbProgress),
+                CurlOption.ProgressFunction);
+            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.HeaderFunction, _pcbHeader),
+                CurlOption.HeaderFunction);
+            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.DebugFunction, _pcbDebug),
+                CurlOption.DebugFunction);
+            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.SslCtxFunction, _pcbSslCtx),
+                CurlOption.SslCtxFunction);
+            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.IoctlFunction, _pcbIoctl),
+                CurlOption.IoctlFunction);
+            setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.NoProgress, (IntPtr) 0),
+                CurlOption.NoProgress);
+
+            setWriteData(null);
+            setReadData(null);
+            setHeaderData(null);
+            setProgressData(null);
+            setDebugData(null);
+            setSslCtxData(null);
+            setIoctlData(null);
+#endif
         }
 
-        // called by libcurlshim
-        private static int _ShimWriteCallback(IntPtr buf, int sz, int nmemb, IntPtr parm)
+#if USE_LIBCURLSHIM
+    // called by libcurlshim
+        private static int _shimWriteCallback(IntPtr buf, int sz, int nmemb, IntPtr parm)
         {
             var bytes = sz*nmemb;
             var b = new byte[bytes];
@@ -1733,7 +1991,7 @@ namespace CurlSharp
         }
 
         // called by libcurlshim
-        private static int _ShimReadCallback(IntPtr buf, int sz, int nmemb, IntPtr parm)
+        private static int _shimReadCallback(IntPtr buf, int sz, int nmemb, IntPtr parm)
         {
             var bytes = sz*nmemb;
             var b = new byte[bytes];
@@ -1753,7 +2011,7 @@ namespace CurlSharp
         }
 
         // called by libcurlshim
-        private static int _ShimProgressCallback(IntPtr parm, double dlTotal, double dlNow, double ulTotal, double ulNow)
+        private static int _shimProgressCallback(IntPtr parm, double dlTotal, double dlNow, double ulTotal, double ulNow)
         {
             var gch = (GCHandle) parm;
             var curlEasy = (CurlEasy) gch.Target;
@@ -1766,7 +2024,7 @@ namespace CurlSharp
         }
 
         // called by libcurlshim
-        private static int _ShimDebugCallback(CurlInfoType infoType, IntPtr msgBuf, int msgBufSize, IntPtr parm)
+        private static int _shimDebugCallback(CurlInfoType infoType, IntPtr msgBuf, int msgBufSize, IntPtr parm)
         {
             var gch = (GCHandle) parm;
             var curlEasy = (CurlEasy) gch.Target;
@@ -1780,7 +2038,7 @@ namespace CurlSharp
         }
 
         // called by libcurlshim
-        private static int _ShimHeaderCallback(IntPtr buf, int sz, int nmemb, IntPtr parm)
+        private static int _shimHeaderCallback(IntPtr buf, int sz, int nmemb, IntPtr parm)
         {
             var bytes = sz*nmemb;
             var b = new byte[bytes];
@@ -1796,7 +2054,7 @@ namespace CurlSharp
         }
 
         // called by libcurlshim
-        private static int _ShimSslCtxCallback(IntPtr ctx, IntPtr parm)
+        private static int _shimSslCtxCallback(IntPtr ctx, IntPtr parm)
         {
             const int OK_RETURN = (int) CurlCode.Ok;
             var gch = (GCHandle) parm;
@@ -1810,7 +2068,7 @@ namespace CurlSharp
         }
 
         // called by libcurlshim
-        private static CurlIoError _ShimIoctlCallback(CurlIoCommand cmd, IntPtr parm)
+        private static CurlIoError _shimIoctlCallback(CurlIoCommand cmd, IntPtr parm)
         {
             var gch = (GCHandle) parm;
             var curlEasy = (CurlEasy) gch.Target;
@@ -1821,5 +2079,79 @@ namespace CurlSharp
             }
             return curlEasy._pfCurlIoctl(cmd, curlEasy._ioctlData);
         }
+#else
+        // called by libcurl
+        private int _curlWriteCallback(IntPtr pBuffer, int sz, int nmemb, IntPtr pUserData)
+        {
+            var bytes = sz*nmemb;
+            if (_pfCurlWrite == null) return bytes; // keep going
+            var buf = new byte[bytes];
+            Marshal.Copy(pBuffer, buf, 0, bytes);
+            var userdata = getObject(pUserData);
+            return _pfCurlWrite(buf, sz, nmemb, userdata);
+        }
+
+        private int _curlReadCallback(IntPtr pBuffer, int sz, int nmemb, IntPtr pUserData)
+        {
+            var bytes = sz*nmemb;
+            if (_pfCurlRead == null) return bytes; // keep going
+            var userdata = getObject(pUserData);
+            var buffer = new byte[bytes];
+            var nRead = _pfCurlRead(buffer, sz, nmemb, userdata);
+            if (nRead > 0)
+                Marshal.Copy(buffer, 0, pBuffer, nRead);
+            return nRead;
+        }
+
+        private int _curlProgressCallback(IntPtr ptrUserdata, double dlTotal, double dlNow, double ulTotal, double ulNow)
+        {
+            if (_pfCurlProgress != null)
+            {
+                var userdata = getObject(ptrUserdata);
+                return _pfCurlProgress(userdata, dlTotal, dlNow, ulTotal, ulNow);
+            }
+            return 0;
+        }
+
+        private int _curlDebugCallback(IntPtr pCurl, CurlInfoType infoType, string message, int size, IntPtr pUserData)
+        {
+            if (_pfCurlDebug != null)
+            {
+                var userdata = getObject(pUserData);
+                _pfCurlDebug(infoType, message, userdata);
+            }
+            return 0;
+        }
+
+        private int _curlHeaderCallback(IntPtr pBuffer, int sz, int nmemb, IntPtr pUserdata)
+        {
+            var bytes = sz*nmemb;
+            if (_pfCurlHeader != null)
+            {
+                var buf = new byte[bytes];
+                Marshal.Copy(pBuffer, buf, 0, bytes);
+                var userdata = getObject(pUserdata);
+                return _pfCurlHeader(buf, sz, nmemb, userdata);
+            }
+            return bytes; // keep going
+        }
+
+        private int _curlSslCtxCallback(IntPtr ctx, IntPtr pUserdata)
+        {
+            var userdata = getObject(pUserdata);
+            if (_pfCurlSslContext == null)
+                return (int) CurlCode.Ok; // keep going
+            var context = new CurlSslContext(ctx);
+            return (int) _pfCurlSslContext(context, userdata);
+        }
+
+        private CurlIoError _curlIoctlCallback(CurlIoCommand cmd, IntPtr pUserdata)
+        {
+            var userdata = getObject(pUserdata);
+            if (_pfCurlIoctl == null || userdata == null)
+                return CurlIoError.UnknownCommand;
+            return _pfCurlIoctl(cmd, userdata);
+        }
+#endif
     }
 }

@@ -30,10 +30,14 @@ namespace CurlSharp
     {
         // private members
         private readonly Hashtable _htEasy;
-        private bool _bGotMultiInfo;
-        private IntPtr _fdSets;
-        private int _mMaxFd;
+        private int _maxFd;
         private CurlMultiInfo[] _multiInfo;
+        private bool _bGotMultiInfo;
+#if USE_LIBCURLSHIM
+        private IntPtr _fdSets;
+#else
+        private NativeMethods.fd_set _fd_read, _fd_write, _fd_except;
+#endif
         private IntPtr _pMulti;
 
         /// <summary>
@@ -52,9 +56,16 @@ namespace CurlSharp
             Curl.EnsureCurl();
             _pMulti = NativeMethods.curl_multi_init();
             ensureHandle();
+            _maxFd = 0;
+#if USE_LIBCURLSHIM
             _fdSets = IntPtr.Zero;
-            _mMaxFd = 0;
             _fdSets = NativeMethods.curl_shim_alloc_fd_sets();
+#else
+            _fd_read = NativeMethods.fd_set.Create();
+            _fd_read = NativeMethods.fd_set.Create();
+            _fd_write = NativeMethods.fd_set.Create();
+            _fd_except = NativeMethods.fd_set.Create();
+#endif
             _multiInfo = null;
             _bGotMultiInfo = false;
             _htEasy = new Hashtable();
@@ -65,7 +76,7 @@ namespace CurlSharp
         /// </summary>
         public int MaxFd
         {
-            get { return _mMaxFd; }
+            get { return _maxFd; }
         }
 
         /// <summary>
@@ -96,11 +107,18 @@ namespace CurlSharp
                     NativeMethods.curl_multi_cleanup(_pMulti);
                     _pMulti = IntPtr.Zero;
                 }
+
+#if USE_LIBCURLSHIM
                 if (_fdSets != IntPtr.Zero)
                 {
                     NativeMethods.curl_shim_free_fd_sets(_fdSets);
                     _fdSets = IntPtr.Zero;
                 }
+#else
+                _fd_read.Cleanup();
+                _fd_write.Cleanup();
+                _fd_except.Cleanup();
+#endif
             }
         }
 
@@ -126,7 +144,7 @@ namespace CurlSharp
         public CurlMultiCode AddHandle(CurlEasy curlEasy)
         {
             ensureHandle();
-            var p = curlEasy.GetHandle();
+            var p = curlEasy.Handle;
             _htEasy.Add(p, curlEasy);
             return NativeMethods.curl_multi_add_handle(_pMulti, p);
         }
@@ -147,9 +165,9 @@ namespace CurlSharp
         public CurlMultiCode RemoveHandle(CurlEasy curlEasy)
         {
             ensureHandle();
-            var p = curlEasy.GetHandle();
+            var p = curlEasy.Handle;
             _htEasy.Remove(p);
-            return NativeMethods.curl_multi_remove_handle(_pMulti, curlEasy.GetHandle());
+            return NativeMethods.curl_multi_remove_handle(_pMulti, curlEasy.Handle);
         }
 
         /// <summary>
@@ -198,7 +216,14 @@ namespace CurlSharp
         public CurlMultiCode FdSet()
         {
             ensureHandle();
-            return NativeMethods.curl_shim_multi_fdset(_pMulti, _fdSets, ref _mMaxFd);
+#if USE_LIBCURLSHIM
+            return NativeMethods.curl_shim_multi_fdset(_pMulti, _fdSets, ref _maxFd);
+#else
+            NativeMethods.FD_ZERO(_fd_read);
+            NativeMethods.FD_ZERO(_fd_write);
+            NativeMethods.FD_ZERO(_fd_except);
+            return NativeMethods.curl_multi_fdset(_pMulti, ref _fd_read, ref _fd_write, ref _fd_except, ref _maxFd);
+#endif
         }
 
         /// <summary>
@@ -218,7 +243,13 @@ namespace CurlSharp
         public int Select(int timeoutMillis)
         {
             ensureHandle();
-            return NativeMethods.curl_shim_select(MaxFd + 1, _fdSets, timeoutMillis);
+#if USE_LIBCURLSHIM
+            return NativeMethods.curl_shim_select(_maxFd + 1, _fdSets, timeoutMillis);
+#else
+            var timeout = NativeMethods.timeval.Create(timeoutMillis);
+            return NativeMethods.select(_maxFd + 1, ref _fd_read, ref _fd_write, ref _fd_except, ref timeout);
+            //return NativeMethods.select2(_maxFd + 1, _fd_read, _fd_write, _fd_except, timeout);
+#endif
         }
 
         /// <summary>
@@ -236,8 +267,10 @@ namespace CurlSharp
         {
             if (_bGotMultiInfo)
                 return _multiInfo;
+
             _bGotMultiInfo = true;
 
+#if USE_LIBCURLSHIM
             var nMsgs = 0;
             var pInfo = NativeMethods.curl_shim_multi_info_read(_pMulti, ref nMsgs);
             if (pInfo != IntPtr.Zero)
@@ -252,6 +285,7 @@ namespace CurlSharp
                 }
                 NativeMethods.curl_shim_multi_info_free(pInfo);
             }
+#endif
             return _multiInfo;
         }
     }

@@ -1,7 +1,4 @@
-// $Id: FileUpload.cs,v 1.1 2005/02/17 22:47:24 jeffreyphillips Exp $
 // FileUpload.cs - demonstrate RFC 1867 file upload capability
-// Compile with "csc /r:../bin/CurlSharp.dll /out:../bin/FileUpload.exe FileUpload.cs"
-
 // usage: FileUpload url fileName
 // e.g. FileUpload http://mybox/cgi-bin/myscript.cgi myFile.dat
 // NOTE: you'll need to tweak this as per the specific form you're sending
@@ -17,7 +14,7 @@ namespace FileUpload
         {
             try
             {
-                Curl.GlobalInit((int) CurlInitFlag.All);
+                Curl.GlobalInit(CurlInitFlag.All);
 
                 // <form action="http://mybox/cgi-bin/myscript.cgi
                 //  method="post" enctype="multipart/form-data">

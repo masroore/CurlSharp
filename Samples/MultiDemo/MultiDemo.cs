@@ -1,7 +1,4 @@
-// $Id: MultiDemo.cs,v 1.1 2005/02/17 22:47:24 jeffreyphillips Exp $
 // MultiDemo.cs - demonstrate multi capability
-// Compile with "csc /r:../bin/CurlSharp.dll /out:../bin/MultiDemo.exe MultiDemo.cs"
-
 // usage: MultiDemo url1 url2, e.g. MultiDemo http://www.google.com http://www.yahoo.com
 
 using System;
@@ -16,7 +13,7 @@ namespace MultiDemo
         {
             try
             {
-                Curl.GlobalInit((int) CurlInitFlag.All);
+                Curl.GlobalInit(CurlInitFlag.All);
 
                 CurlWriteCallback wf = OnWriteData;
 

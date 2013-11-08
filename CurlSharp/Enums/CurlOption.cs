@@ -1270,21 +1270,21 @@ namespace CurlSharp
         ///     Set the parameter to <c>true</c> to get the library to display a lot
         ///     of verbose information about its operations. Very useful for libcurl
         ///     and/or protocol debugging and understanding. The verbose information
-        ///     will be sent to the <see cref="CurlEasy.CurlDebugCallback" /> delegate, if it's
+        ///     will be sent to the <see cref="CurlDebugCallback" /> delegate, if it's
         ///     implemented. You hardly ever want this set in production use, you will
         ///     almost always want this when you debug/report problems.
         /// </summary>
         Verbose = 41,
 
         /// <summary>
-        ///     Object reference to pass to the <see cref="CurlEasy.CurlWriteCallback" />
+        ///     Object reference to pass to the <see cref="CurlWriteCallback" />
         ///     delegate. Note that if you specify the <c>CurlWriteCallback</c>,
         ///     this is the object you'll get as input.
         /// </summary>
         WriteData = 10001,
 
         /// <summary>
-        ///     Pass a reference to an <see cref="CurlEasy.CurlWriteCallback" /> delegate.
+        ///     Pass a reference to an <see cref="CurlWriteCallback" /> delegate.
         ///     The delegate gets called by libcurl as soon as there is data received
         ///     that needs to be saved. The size of the data referenced by <c>buf</c>
         ///     is <c>size</c> multiplied with <c>nmemb</c>, it will not be zero

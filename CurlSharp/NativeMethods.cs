@@ -17,6 +17,8 @@
  *
  **************************************************************************/
 
+//#define USE_LIBCURLSHIM
+
 using System;
 using System.Runtime.InteropServices;
 
@@ -25,14 +27,21 @@ namespace CurlSharp
     /// <summary>
     ///     P/Invoke signatures.
     /// </summary>
-    internal static class NativeMethods
+    internal static unsafe class NativeMethods
     {
 #if WIN64
         private const string CURL_LIB = "libcurl64.dll";
+    #if USE_LIBCURLSHIM
         private const string CURLSHIM_LIB = "libcurlshim64.dll";
+    #endif
 #else
         private const string CURL_LIB = "libcurl.dll";
+#if USE_LIBCURLSHIM
         private const string CURLSHIM_LIB = "libcurlshim.dll";
+    #endif
+#endif
+#if !USE_LIBCURLSHIM
+        private const string WINSOCK_LIB = "ws2_32.dll";
 #endif
 
         // internal delegates from cURL
@@ -68,6 +77,127 @@ namespace CurlSharp
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
         internal static extern CurlCode curl_easy_setopt_64(IntPtr pCurl, CurlOption opt, long parm);
 
+#if !USE_LIBCURLSHIM
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern CurlMultiCode curl_multi_fdset(IntPtr pmulti,
+            [In, Out] ref fd_set read_fd_set,
+            [In, Out] ref fd_set write_fd_set,
+            [In, Out] ref fd_set exc_fd_set,
+            [In, Out] ref int max_fd);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate int _CurlGenericCallback(IntPtr ptr, int sz, int nmemb, IntPtr userdata);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate int _CurlProgressCallback(
+            IntPtr extraData, double dlTotal, double dlNow, double ulTotal, double ulNow);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate int _CurlDebugCallback(
+            IntPtr ptrCurl, CurlInfoType infoType, string message, int size, IntPtr ptrUserData);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate int _CurlSslCtxCallback(IntPtr ctx, IntPtr parm);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate CurlIoError _CurlIoctlCallback(CurlIoCommand cmd, IntPtr parm);
+
+        // curl_easy_setopt() overloads
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
+        internal static extern CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlGenericCallback parm);
+
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
+        internal static extern CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlProgressCallback parm);
+
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
+        internal static extern CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlDebugCallback parm);
+
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
+        internal static extern CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlSslCtxCallback parm);
+
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
+        internal static extern CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm);
+
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
+        internal static extern CurlCode curl_easy_setopt_str(IntPtr pCurl, CurlOption opt, string parm);
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct fd_set
+        {
+            internal uint fd_count;
+            //[MarshalAs(UnmanagedType.ByValArray, SizeConst = FD_SETSIZE)] internal IntPtr[] fd_array;
+            internal fixed uint fd_array [FD_SETSIZE];
+
+            internal const int FD_SETSIZE = 64;
+
+            internal void Cleanup()
+            {
+                //fd_array = null;
+            }
+
+            internal static fd_set Create()
+            {
+                return new fd_set
+                {
+                    //fd_array = new IntPtr[FD_SETSIZE],
+                    fd_count = 0
+                };
+            }
+
+            internal static fd_set Create(IntPtr socket)
+            {
+                var handle = Create();
+                handle.fd_count = 1;
+                handle.fd_array[0] = (uint) socket;
+                return handle;
+            }
+        }
+
+        internal static void FD_ZERO(fd_set fds)
+        {
+            for (var i = 0; i < fd_set.FD_SETSIZE; i++)
+            {
+                //fds.fd_array[i] = (IntPtr) 0;
+                fds.fd_array[i] = 0;
+            }
+            fds.fd_count = 0;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct timeval
+        {
+            /// <summary>
+            ///     Time interval, in seconds.
+            /// </summary>
+            internal int tv_sec;
+
+            /// <summary>
+            ///     Time interval, in microseconds.
+            /// </summary>
+            internal int tv_usec;
+
+            internal static timeval Create(int milliseconds)
+            {
+                return new timeval
+                {
+                    tv_sec = milliseconds/1000,
+                    tv_usec = (milliseconds%1000)*1000
+                };
+            }
+        };
+
+        [DllImport(WINSOCK_LIB, EntryPoint = "select")]
+        internal static extern int select(
+            int nfds, // number of sockets, (ignored in winsock)
+            [In, Out] ref fd_set readfds, // read sockets to watch
+            [In, Out] ref fd_set writefds, // write sockets to watch
+            [In, Out] ref fd_set exceptfds, // error sockets to watch
+            ref timeval timeout);
+
+        //[DllImport(WINSOCK_LIB, EntryPoint = "select")]
+        //internal static extern int select(int ndfs, fd_set* readfds, fd_set* writefds, fd_set* exceptfds, timeval* timeout);
+#endif
+
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern CurlCode curl_easy_perform(IntPtr pCurl);
 
@@ -81,8 +211,7 @@ namespace CurlSharp
         internal static extern CurlCode curl_easy_getinfo(IntPtr pCurl, CurlInfo info, ref IntPtr pInfo);
 
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_getinfo")]
-        internal static extern CurlCode curl_easy_getinfo_64(IntPtr pCurl,
-            CurlInfo info, ref double dblVal);
+        internal static extern CurlCode curl_easy_getinfo_64(IntPtr pCurl, CurlInfo info, ref double dblVal);
 
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void curl_easy_reset(IntPtr pCurl);
@@ -120,10 +249,18 @@ namespace CurlSharp
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern CurlShareCode curl_share_setopt(IntPtr pShare, CurlShareOption optCode, IntPtr option);
 
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        internal static extern IntPtr curl_slist_append(IntPtr slist, string data);
+
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern CurlShareCode curl_slist_free_all(IntPtr pList);
+
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr curl_version_info(CurlVersion ver);
 
-        // libcurlshim imports
+#if USE_LIBCURLSHIM
+
+    // libcurlshim imports
         [DllImport(CURLSHIM_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void curl_shim_initialize();
 
@@ -152,10 +289,10 @@ namespace CurlSharp
 
         [DllImport(CURLSHIM_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int curl_shim_install_delegates(IntPtr pCurl, IntPtr pThis,
-            CURL_WRITE_DELEGATE pWrite, CURL_READ_DELEGATE pRead,
-            CURL_PROGRESS_DELEGATE pProgress, CURL_DEBUG_DELEGATE pDebug,
-            CURL_HEADER_DELEGATE pHeader, CURL_SSL_CTX_DELEGATE pCtx,
-            CURL_IOCTL_DELEGATE pIoctl);
+            _ShimWriteCallback pWrite, _ShimReadCallback pRead,
+            _ShimProgressCallback pProgress, _ShimDebugCallback pDebug,
+            _ShimHeaderCallback pHeader, _ShimSslCtxCallback pCtx,
+            _ShimIoctlCallback pIoctl);
 
         [DllImport(CURLSHIM_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void curl_shim_cleanup_delegates(IntPtr pThis);
@@ -179,7 +316,7 @@ namespace CurlSharp
 
         [DllImport(CURLSHIM_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int curl_shim_select(int maxFD, IntPtr fdsets,
-            int timeoutMillis);
+            int milliseconds);
 
         [DllImport(CURLSHIM_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr curl_shim_multi_info_read(IntPtr multi,
@@ -193,7 +330,7 @@ namespace CurlSharp
 
         [DllImport(CURLSHIM_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int curl_shim_install_share_delegates(IntPtr pShare,
-            IntPtr pThis, CURLSH_LOCK_DELEGATE pLock, CURLSH_UNLOCK_DELEGATE pUnlock);
+            IntPtr pThis, _ShimLockCallback pLock, _ShimUnlockCallback pUnlock);
 
         [DllImport(CURLSHIM_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void curl_shim_cleanup_share_delegates(IntPtr pShare);
@@ -210,23 +347,23 @@ namespace CurlSharp
         [DllImport(CURLSHIM_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr curl_shim_get_protocol_string(IntPtr p, int offset, int index);
 
-        internal delegate void CURLSH_LOCK_DELEGATE(int data, int access, IntPtr userPtr);
+        internal delegate void _ShimLockCallback(int data, int access, IntPtr userPtr);
 
-        internal delegate void CURLSH_UNLOCK_DELEGATE(int data, IntPtr userPtr);
+        internal delegate void _ShimUnlockCallback(int data, IntPtr userPtr);
 
-        internal delegate int CURL_DEBUG_DELEGATE(CurlInfoType infoType, IntPtr msgBuf, int msgBufSize, IntPtr parm);
+        internal delegate int _ShimDebugCallback(CurlInfoType infoType, IntPtr msgBuf, int msgBufSize, IntPtr parm);
 
-        internal delegate int CURL_HEADER_DELEGATE(IntPtr buf, int sz, int nmemb, IntPtr stream);
+        internal delegate int _ShimHeaderCallback(IntPtr buf, int sz, int nmemb, IntPtr stream);
 
-        internal delegate CurlIoError CURL_IOCTL_DELEGATE(CurlIoCommand cmd, IntPtr parm);
+        internal delegate CurlIoError _ShimIoctlCallback(CurlIoCommand cmd, IntPtr parm);
 
-        internal delegate int CURL_PROGRESS_DELEGATE(
-            IntPtr parm, double dlTotal, double dlNow, double ulTotal, double ulNow);
+        internal delegate int _ShimProgressCallback(IntPtr parm, double dlTotal, double dlNow, double ulTotal, double ulNow);
 
-        internal delegate int CURL_READ_DELEGATE(IntPtr buf, int sz, int nmemb, IntPtr parm);
+        internal delegate int _ShimReadCallback(IntPtr buf, int sz, int nmemb, IntPtr parm);
 
-        internal delegate int CURL_SSL_CTX_DELEGATE(IntPtr ctx, IntPtr parm);
+        internal delegate int _ShimSslCtxCallback(IntPtr ctx, IntPtr parm);
 
-        internal delegate int CURL_WRITE_DELEGATE(IntPtr buf, int sz, int nmemb, IntPtr parm);
+        internal delegate int _ShimWriteCallback(IntPtr buf, int sz, int nmemb, IntPtr parm);
+#endif
     }
 }

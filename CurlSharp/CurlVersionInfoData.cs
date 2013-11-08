@@ -47,7 +47,7 @@ namespace CurlSharp
         {
             m_pVersionInfoData = NativeMethods.curl_version_info(ver);
         }
-
+#if USE_LIBCURLSHIM
         /// <summary>
         ///     Age of this struct, depending on how recent the linked-in
         ///     <c>libcurl</c> is, as a <see cref="CurlVersion" />.
@@ -202,5 +202,6 @@ namespace CurlSharp
                 return "n.a.";
             }
         }
+#endif
     }
 }
