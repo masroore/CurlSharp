@@ -34,14 +34,22 @@ namespace CurlSharp
     #if USE_LIBCURLSHIM
         private const string CURLSHIM_LIB = "libcurlshim64.dll";
     #endif
-#else
+#else        
+	#if LINUX
+        private const string CURL_LIB = "libcurl";
+	#else
         private const string CURL_LIB = "libcurl.dll";
-#if USE_LIBCURLSHIM
+		#if USE_LIBCURLSHIM
         private const string CURLSHIM_LIB = "libcurlshim.dll";
-    #endif
+    	#endif
+	#endif
 #endif
 #if !USE_LIBCURLSHIM
-        private const string WINSOCK_LIB = "ws2_32.dll";
+	#if LINUX
+		private const string WINSOCK_LIB = "libc";
+	#else
+    	private const string WINSOCK_LIB = "ws2_32.dll";
+	#endif
 #endif
 
         // internal delegates from cURL

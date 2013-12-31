@@ -1,50 +1,41 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{BB549A64-BB2C-4B09-A15B-0BD2CEC95C9C}</ProjectGuid>
+    <ProjectGuid>{74420A79-CC16-442C-8B1E-7C1B913844F0}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>CurlSharp</RootNamespace>
     <AssemblyName>CurlSharp</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
+    <ProductVersion>12.0.0</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;xUSE_LIBCURLSHIM</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG;LINUX</DefineConstants>
     <WarningLevel>4</WarningLevel>
-    <PlatformTarget>x86</PlatformTarget>
+    <ConsolePause>false</ConsolePause>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
+    <DebugType>full</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE;xUSE_LIBCURLSHIM</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
+    <OutputPath>bin\Release</OutputPath>
     <WarningLevel>4</WarningLevel>
-    <PlatformTarget>x86</PlatformTarget>
+    <ConsolePause>false</ConsolePause>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Callbacks\CurlEasyCallbacks.cs" />
-    <Compile Include="Callbacks\CurlShareCallbacks.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Curl.cs" />
     <Compile Include="CurlEasy.cs" />
     <Compile Include="CurlHttpMultiPartForm.cs" />
@@ -54,6 +45,7 @@
     <Compile Include="CurlSlist.cs" />
     <Compile Include="CurlSslContext.cs" />
     <Compile Include="CurlVersionInfoData.cs" />
+    <Compile Include="NativeMethods.cs" />
     <Compile Include="Enums\CurlClosePolicy.cs" />
     <Compile Include="Enums\CurlCode.cs" />
     <Compile Include="Enums\CurlFormCode.cs" />
@@ -81,8 +73,8 @@
     <Compile Include="Enums\CurlTimeCond.cs" />
     <Compile Include="Enums\CurlVersion.cs" />
     <Compile Include="Enums\CurlVersionFeatureBitmask.cs" />
-    <Compile Include="NativeMethods.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Callbacks\CurlEasyCallbacks.cs" />
+    <Compile Include="Callbacks\CurlShareCallbacks.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
@@ -92,4 +84,8 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <Folder Include="Enums\" />
+    <Folder Include="Callbacks\" />
+  </ItemGroup>
 </Project>

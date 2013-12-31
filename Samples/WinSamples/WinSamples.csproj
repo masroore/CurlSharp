@@ -77,12 +77,6 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\CurlSharp\CurlSharp.csproj">
-      <Project>{AEF8DC8B-814F-4C03-B048-55EE0F093496}</Project>
-      <Name>src</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Content Include="bin\Debug\libcurl.dll" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
@@ -93,4 +87,10 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\CurlSharp\CurlSharp.csproj">
+      <Project>{74420A79-CC16-442C-8B1E-7C1B913844F0}</Project>
+      <Name>CurlSharp</Name>
+    </ProjectReference>
+  </ItemGroup>
 </Project>
