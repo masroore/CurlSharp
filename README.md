@@ -17,7 +17,7 @@ CurlSharp provides simple get/set properties for libcurl's options and informati
 The CurlSharp library consists of these parts:
 
 - Pure C# P/Invoke bindings to the libcurl API.
-- Optional but recommended libcurlshim helper DLL [WIN32/64].
+- Optional libcurlshim helper DLL [WIN32].
 - The `CurlEasy` class which provides a wrapper around a curl_easy session.
 - The `CurlMulti` class, which serves as a container for multiple CurlEasy objects, and provides a wrapper around a curl_multi session.
 - The `CurlShare` class which provides an infrastructure for serializing access to data shared by multiple `CurlEasy` objects, including cookie data and DNS hosts. It implements the `curl_share_xxx` API. 
@@ -63,6 +63,18 @@ A simple HTTP download program...
 	        return size*nmemb;
 	    }
 	}
+	
+Simple HTTP Post example:
+
+  using (var easy = new CurlEasy())
+  {
+      easy.Url = "http://hostname/testpost.php";
+      easy.Post = true;
+      var postData = "parm1=12345&parm2=Hello+world%21";
+      easy.PostFields = postData;
+      easy.PostFieldSize = postLength;
+      easy.Perform();
+  }
 
 Several more samples are included in the Samples folder.
 
