@@ -2,7 +2,7 @@
  *
  * CurlS#arp
  *
- * Copyright (c) 2013 Dr. Masroor Ehsan (masroore@gmail.com)
+ * Copyright (c) 2014 Dr. Masroor Ehsan (masroore@gmail.com)
  * Portions copyright (c) 2004, 2005 Jeff Phillips (jeff@jeffp.net)
  *
  * This software is licensed as described in the file LICENSE, which you
@@ -172,9 +172,6 @@ namespace CurlSharp
                         nRealCount += 2*(nFormsCount - 2);
                         break;
                     }
-
-                    default:
-                        break;
                 }
             }
 
@@ -333,7 +330,10 @@ namespace CurlSharp
 #if USE_LIBCURLSHIM
                 retCode = (CurlFormCode) NativeMethods.curl_shim_formadd(_pItems, aPointers, nRealCount);
 #else
-                throw new NotImplementedException("HTTP multi-part forms are not supported without the libcurlshim helper library");
+                retCode = (CurlFormCode) NativeMethods.curl_formadd(ref _pItems[0], ref _pItems[1],
+                                                                    (int) aPointers[0], aPointers[1],
+                                                                    (int) aPointers[2], aPointers[3],
+                                                                    (int) aPointers[4]);
 #endif
             }
 
