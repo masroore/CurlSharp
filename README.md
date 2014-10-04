@@ -33,48 +33,48 @@ CurlSharp is available for these platforms:
 #### Examples ####
 A simple HTTP download program...
 ```c#
-    using System;
-    using CurlSharp;
+using System;
+using CurlSharp;
 
-    internal class EasyGet
+internal class EasyGet
+{
+    public static void Main(String[] args)
     {
-        public static void Main(String[] args)
-        {
-            Curl.GlobalInit(CurlInitFlag.All);
-			
-			try
-			{
-	            using (var easy = new CurlEasy())
-	            {
-	                easy.Url = "http://www.google.com/";
-	            	easy.WriteFunction = OnWriteData;
-		            easy.Perform();
-	    	    }
-			}
-			finally
-			{
-    	    	Curl.GlobalCleanup();
-			}	
-	    }
-	
-	    public static Int32 OnWriteData(Byte[] buf, Int32 size, Int32 nmemb, Object extraData)
-	    {
-        	Console.Write(Encoding.UTF8.GetString(buf));
-	        return size*nmemb;
-	    }
-	}
+        Curl.GlobalInit(CurlInitFlag.All);
+  
+  try
+  {
+          using (var easy = new CurlEasy())
+          {
+              easy.Url = "http://www.google.com/";
+            easy.WriteFunction = OnWriteData;
+            easy.Perform();
+        }
+  }
+  finally
+  {
+        Curl.GlobalCleanup();
+  }	
+  }
+
+  public static Int32 OnWriteData(Byte[] buf, Int32 size, Int32 nmemb, Object extraData)
+  {
+      Console.Write(Encoding.UTF8.GetString(buf));
+      return size*nmemb;
+  }
+}
 ```	
 Simple HTTP Post example:
 ```c#
-  using (var easy = new CurlEasy())
-  {
-      easy.Url = "http://hostname/testpost.php";
-      easy.Post = true;
-      var postData = "parm1=12345&parm2=Hello+world%21";
-      easy.PostFields = postData;
-      easy.PostFieldSize = postLength;
-      easy.Perform();
-  }
+using (var easy = new CurlEasy())
+{
+    easy.Url = "http://hostname/testpost.php";
+    easy.Post = true;
+    var postData = "parm1=12345&parm2=Hello+world%21";
+    easy.PostFields = postData;
+    easy.PostFieldSize = postData.Length;
+    easy.Perform();
+}
 ```
 Several more samples are included in the Samples folder.
 
