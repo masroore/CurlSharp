@@ -2,7 +2,7 @@
  *
  * CurlS#arp
  *
- * Copyright (c) 2013 Dr. Masroor Ehsan (masroore@gmail.com)
+ * Copyright (c) 2014 Dr. Masroor Ehsan (masroore@gmail.com)
  * Portions copyright (c) 2004, 2005 Jeff Phillips (jeff@jeffp.net)
  *
  * This software is licensed as described in the file LICENSE, which you
@@ -34,22 +34,22 @@ namespace CurlSharp
     #if USE_LIBCURLSHIM
         private const string CURLSHIM_LIB = "libcurlshim64.dll";
     #endif
-#else        
-	#if LINUX
+#else
+#if LINUX
         private const string CURL_LIB = "libcurl";
 	#else
         private const string CURL_LIB = "libcurl.dll";
-		#if USE_LIBCURLSHIM
+#if USE_LIBCURLSHIM
         private const string CURLSHIM_LIB = "libcurlshim.dll";
     	#endif
-	#endif
+#endif
 #endif
 #if !USE_LIBCURLSHIM
-	#if LINUX
+#if LINUX
 		private const string WINSOCK_LIB = "libc";
 	#else
-    	private const string WINSOCK_LIB = "ws2_32.dll";
-	#endif
+        private const string WINSOCK_LIB = "ws2_32.dll";
+#endif
 #endif
 
         // internal delegates from cURL
@@ -102,7 +102,7 @@ namespace CurlSharp
 
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, string parm);
-        
+
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, byte[] parm);
 
@@ -130,10 +130,10 @@ namespace CurlSharp
 #if !USE_LIBCURLSHIM
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern CurlMultiCode curl_multi_fdset(IntPtr pmulti,
-            [In, Out] ref fd_set read_fd_set,
-            [In, Out] ref fd_set write_fd_set,
-            [In, Out] ref fd_set exc_fd_set,
-            [In, Out] ref int max_fd);
+                                                              [In, Out] ref fd_set read_fd_set,
+                                                              [In, Out] ref fd_set write_fd_set,
+                                                              [In, Out] ref fd_set exc_fd_set,
+                                                              [In, Out] ref int max_fd);
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct fd_set
@@ -152,10 +152,10 @@ namespace CurlSharp
             internal static fd_set Create()
             {
                 return new fd_set
-                {
-                    //fd_array = new IntPtr[FD_SETSIZE],
-                    fd_count = 0
-                };
+                       {
+                           //fd_array = new IntPtr[FD_SETSIZE],
+                           fd_count = 0
+                       };
             }
 
             internal static fd_set Create(IntPtr socket)
@@ -193,10 +193,10 @@ namespace CurlSharp
             internal static timeval Create(int milliseconds)
             {
                 return new timeval
-                {
-                    tv_sec = milliseconds/1000,
-                    tv_usec = (milliseconds%1000)*1000
-                };
+                       {
+                           tv_sec = milliseconds/1000,
+                           tv_usec = (milliseconds%1000)*1000
+                       };
             }
         };
 
@@ -224,8 +224,8 @@ namespace CurlSharp
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern CurlCode curl_easy_getinfo(IntPtr pCurl, CurlInfo info, ref IntPtr pInfo);
 
-        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_getinfo")]
-        internal static extern CurlCode curl_easy_getinfo_64(IntPtr pCurl, CurlInfo info, ref double dblVal);
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern CurlCode curl_easy_getinfo(IntPtr pCurl, CurlInfo info, ref double dblVal);
 
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void curl_easy_reset(IntPtr pCurl);
@@ -250,6 +250,11 @@ namespace CurlSharp
 
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void curl_formfree(IntPtr pForm);
+
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr curl_formadd(IntPtr pHttppost, IntPtr pLastPost,
+                                                   int codeFirst, byte[] bufFirst,
+                                                   int codeNext, byte[] bufNext, int codeLast);
 
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr curl_share_init();

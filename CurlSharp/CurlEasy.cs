@@ -1849,7 +1849,7 @@ namespace CurlSharp
             if ((int) info < CURLINFO_DOUBLE)
                 return CurlCode.BadFunctionArgument;
 
-            return NativeMethods.curl_easy_getinfo_64(_pCurl, info, ref dblVal);
+            return NativeMethods.curl_easy_getinfo(_pCurl, info, ref dblVal);
         }
 
         /// <summary>
