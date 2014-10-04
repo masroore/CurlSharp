@@ -110,6 +110,9 @@ namespace CurlSharp
 
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, string parm);
+        
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, byte[] parm);
 
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, long parm);

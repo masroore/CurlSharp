@@ -1336,7 +1336,9 @@ namespace CurlSharp
                 if (pCurlStr != IntPtr.Zero)
                     setLastError(NativeMethods.curl_easy_setopt(_pCurl, option, pCurlStr), option);
 #else
-                setLastError(NativeMethods.curl_easy_setopt(_pCurl, option, value), option);
+                // convert the string to a null-terminated one
+                var buffer = System.Text.Encoding.UTF8.GetBytes(value + "\0");
+                setLastError(NativeMethods.curl_easy_setopt(_pCurl, option, buffer), option);
 #endif
             }
         }
