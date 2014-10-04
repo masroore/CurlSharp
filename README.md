@@ -32,7 +32,7 @@ CurlSharp is available for these platforms:
 
 #### Examples ####
 A simple HTTP download program...
-
+```c#
     using System;
     using CurlSharp;
 
@@ -63,9 +63,9 @@ A simple HTTP download program...
 	        return size*nmemb;
 	    }
 	}
-	
+```	
 Simple HTTP Post example:
-
+```c#
   using (var easy = new CurlEasy())
   {
       easy.Url = "http://hostname/testpost.php";
@@ -75,7 +75,7 @@ Simple HTTP Post example:
       easy.PostFieldSize = postLength;
       easy.Perform();
   }
-
+```
 Several more samples are included in the Samples folder.
 
 #### Credits ####
