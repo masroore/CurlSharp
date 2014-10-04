@@ -1336,7 +1336,7 @@ namespace CurlSharp
                 if (pCurlStr != IntPtr.Zero)
                     setLastError(NativeMethods.curl_easy_setopt(_pCurl, option, pCurlStr), option);
 #else
-                setLastError(NativeMethods.curl_easy_setopt_str(_pCurl, option, value), option);
+                setLastError(NativeMethods.curl_easy_setopt(_pCurl, option, value), option);
 #endif
             }
         }
@@ -1402,7 +1402,7 @@ namespace CurlSharp
             else
             {
                 var i = Convert.ToInt64(parameter);
-                retCode = NativeMethods.curl_easy_setopt_64(_pCurl, option, i);
+                retCode = NativeMethods.curl_easy_setopt(_pCurl, option, i);
             }
 
             return retCode;

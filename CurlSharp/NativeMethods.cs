@@ -79,12 +79,6 @@ namespace CurlSharp
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void curl_easy_cleanup(IntPtr pCurl);
 
-        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, IntPtr parm);
-
-        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
-        internal static extern CurlCode curl_easy_setopt_64(IntPtr pCurl, CurlOption opt, long parm);
-
 #if !USE_LIBCURLSHIM
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern CurlMultiCode curl_multi_fdset(IntPtr pmulti,
@@ -111,6 +105,18 @@ namespace CurlSharp
         internal delegate CurlIoError _CurlIoctlCallback(CurlIoCommand cmd, IntPtr parm);
 
         // curl_easy_setopt() overloads
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, IntPtr parm);
+
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, string parm);
+
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, long parm);
+
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, bool parm);
+
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
         internal static extern CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlGenericCallback parm);
 
@@ -126,8 +132,6 @@ namespace CurlSharp
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
         internal static extern CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm);
 
-        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
-        internal static extern CurlCode curl_easy_setopt_str(IntPtr pCurl, CurlOption opt, string parm);
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct fd_set
