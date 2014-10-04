@@ -37,7 +37,7 @@ namespace CurlSharp
 #else
 #if LINUX
         private const string CURL_LIB = "libcurl";
-	#else
+#else
         private const string CURL_LIB = "libcurl.dll";
 #if USE_LIBCURLSHIM
         private const string CURLSHIM_LIB = "libcurlshim.dll";
@@ -46,8 +46,8 @@ namespace CurlSharp
 #endif
 #if !USE_LIBCURLSHIM
 #if LINUX
-		private const string WINSOCK_LIB = "libc";
-	#else
+        private const string WINSOCK_LIB = "libc";
+#else
         private const string WINSOCK_LIB = "ws2_32.dll";
 #endif
 #endif
@@ -251,10 +251,13 @@ namespace CurlSharp
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void curl_formfree(IntPtr pForm);
 
+#if !USE_LIBCURLSHIM
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr curl_formadd(IntPtr pHttppost, IntPtr pLastPost,
-                                                   int codeFirst, byte[] bufFirst,
-                                                   int codeNext, byte[] bufNext, int codeLast);
+        internal static extern int curl_formadd(ref IntPtr pHttppost, ref IntPtr pLastPost,
+                                                int codeFirst, IntPtr bufFirst,
+                                                int codeNext, IntPtr bufNext,
+                                                int codeLast);
+#endif
 
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr curl_share_init();
