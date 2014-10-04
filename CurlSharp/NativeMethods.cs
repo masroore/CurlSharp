@@ -79,14 +79,6 @@ namespace CurlSharp
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void curl_easy_cleanup(IntPtr pCurl);
 
-#if !USE_LIBCURLSHIM
-        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern CurlMultiCode curl_multi_fdset(IntPtr pmulti,
-            [In, Out] ref fd_set read_fd_set,
-            [In, Out] ref fd_set write_fd_set,
-            [In, Out] ref fd_set exc_fd_set,
-            [In, Out] ref int max_fd);
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         internal delegate int _CurlGenericCallback(IntPtr ptr, int sz, int nmemb, IntPtr userdata);
 
@@ -135,6 +127,13 @@ namespace CurlSharp
         [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
         internal static extern CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm);
 
+#if !USE_LIBCURLSHIM
+        [DllImport(CURL_LIB, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern CurlMultiCode curl_multi_fdset(IntPtr pmulti,
+            [In, Out] ref fd_set read_fd_set,
+            [In, Out] ref fd_set write_fd_set,
+            [In, Out] ref fd_set exc_fd_set,
+            [In, Out] ref int max_fd);
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct fd_set
