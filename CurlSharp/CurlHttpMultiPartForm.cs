@@ -332,6 +332,8 @@ namespace CurlSharp
             {
 #if USE_LIBCURLSHIM
                 retCode = (CurlFormCode) NativeMethods.curl_shim_formadd(_pItems, aPointers, nRealCount);
+#else
+                throw new NotImplementedException("HTTP multi-part forms are not supported without the libcurlshim helper library");
 #endif
             }
 
