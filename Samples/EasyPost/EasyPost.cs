@@ -1,12 +1,4 @@
-﻿// EasyPost - demonstrate POST functionality
-
-
-#define TEST_32BIT_LIBCURLSHIM
-#if (_WIN64)
-    #undef TEST_32BIT_LIBCURLSHIM
-#endif
-
-using System;
+﻿using System;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -27,12 +19,12 @@ namespace EasyPost
             Curl.GlobalInit(CurlInitFlag.All);
             Console.WriteLine("Curl Version: {0}\n", Curl.Version);
 
-            const string postData = "parm1=12345&parm2=%22Hello+world%21%22";
+            const string postData = "parm1=12345&parm2=Hello+world%21";
             var postLength = postData.Length;
 
             Console.WriteLine("\n========== TEST 1 HttpWebRequest ============");
 
-            var request = (HttpWebRequest)WebRequest.Create(TEST_URL);
+            var request = (HttpWebRequest) WebRequest.Create(TEST_URL);
             var data = Encoding.ASCII.GetBytes(postData);
             request.UserAgent = "HttpWebRequest";
             request.Method = "POST";
@@ -44,7 +36,7 @@ namespace EasyPost
                 stream.Write(data, 0, data.Length);
             }
 
-            var response = (HttpWebResponse)request.GetResponse();
+            var response = (HttpWebResponse) request.GetResponse();
             var responseString = new StreamReader(response.GetResponseStream()).ReadToEnd();
 
             Console.WriteLine(responseString);
@@ -67,13 +59,14 @@ namespace EasyPost
                     var code = easy.Perform();
                 }
 
-#if TEST_32BIT_LIBCURLSHIM
                 Console.WriteLine("\n========== TEST 3 CurlEasy HttpPost ============");
 
                 var mf = new CurlHttpMultiPartForm();
-                mf.AddSection(CurlFormOption.CopyName, "parm1", CurlFormOption.CopyContents, "value1",
+                mf.AddSection(CurlFormOption.CopyName, "parm1",
+                              CurlFormOption.CopyContents, "12345",
                               CurlFormOption.End);
-                mf.AddSection(CurlFormOption.CopyName, "parm2", CurlFormOption.CopyContents, "value2",
+                mf.AddSection(CurlFormOption.CopyName, "parm2",
+                              CurlFormOption.CopyContents, "Hello world!",
                               CurlFormOption.End);
                 using (var easy = new CurlEasy())
                 {
@@ -85,7 +78,6 @@ namespace EasyPost
                     easy.HttpPost = mf;
                     var code = easy.Perform();
                 }
-#endif
 
                 Curl.GlobalCleanup();
             }
@@ -94,7 +86,7 @@ namespace EasyPost
                 Console.WriteLine(ex);
             }
 
-            Console.WriteLine("Press <ENTER> to exit...");
+            Console.WriteLine("\nPress <ENTER> to exit...");
             Console.ReadLine();
         }
 
