@@ -18,9 +18,11 @@ namespace BookPost
 
                 using (var easy = new CurlEasy())
                 {
+                    const string postData = "url=index%3Dstripbooks&field-keywords=Topology&Go.x=10&Go.y=10";
                     easy.WriteFunction = OnWriteData;
                     easy.WriteData = null;
-                    easy.PostFields = "url=index%3Dstripbooks&field-keywords=Topology&Go.x=10&Go.y=10";
+                    easy.PostFields = postData;
+                    easy.PostFieldSize = postData.Length;
                     easy.UserAgent = "Mozilla 4.0 (compatible; MSIE 6.0; Win32";
                     easy.FollowLocation = true;
                     easy.Url = "http://www.amazon.com/exec/obidos/search-handle-form/002-5928901-6229641";
