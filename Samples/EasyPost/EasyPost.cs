@@ -1,5 +1,11 @@
 ﻿// EasyPost - demonstrate POST functionality
 
+
+#define TEST_32BIT_LIBCURLSHIM
+#if (_WIN64)
+    #undef TEST_32BIT_LIBCURLSHIM
+#endif
+
 using System;
 using System.IO;
 using System.Net;
@@ -8,7 +14,7 @@ using CurlSharp;
 
 namespace EasyPost
 {
-    internal class Program
+    internal class EasyPost
     {
         // Upload the provided PHP script (testpost.php) to webroot and modify the 
         // following URL accordingly
@@ -61,7 +67,7 @@ namespace EasyPost
                     var code = easy.Perform();
                 }
 
-                /*
+#if TEST_32BIT_LIBCURLSHIM
                 Console.WriteLine("\n========== TEST 3 CurlEasy HttpPost ============");
 
                 var mf = new CurlHttpMultiPartForm();
@@ -79,7 +85,7 @@ namespace EasyPost
                     easy.HttpPost = mf;
                     var code = easy.Perform();
                 }
-                */
+#endif
 
                 Curl.GlobalCleanup();
             }
