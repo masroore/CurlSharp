@@ -2,7 +2,7 @@
  *
  * CurlS#arp
  *
- * Copyright (c) 2013 Dr. Masroor Ehsan (masroore@gmail.com)
+ * Copyright (c) 2014 Dr. Masroor Ehsan (masroore@gmail.com)
  * Portions copyright (c) 2004, 2005 Jeff Phillips (jeff@jeffp.net)
  *
  * This software is licensed as described in the file LICENSE, which you
@@ -450,7 +450,7 @@ namespace CurlSharp
                 _ftpAuth = value;
                 var l = Convert.ToInt32(value);
                 setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.FtpSslAuth, (IntPtr) l),
-                    CurlOption.FtpSslAuth);
+                             CurlOption.FtpSslAuth);
             }
         }
 
@@ -462,7 +462,7 @@ namespace CurlSharp
                 _httpVersion = value;
                 var l = Convert.ToInt32(value);
                 setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.HttpVersion, (IntPtr) l),
-                    CurlOption.HttpVersion);
+                             CurlOption.HttpVersion);
             }
         }
 
@@ -474,7 +474,7 @@ namespace CurlSharp
                 _httpAuth = value;
                 var l = Convert.ToInt32(value);
                 setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.HttpAuth, (IntPtr) l),
-                    CurlOption.HttpAuth);
+                             CurlOption.HttpAuth);
             }
         }
 
@@ -486,7 +486,7 @@ namespace CurlSharp
                 _ftpSsl = value;
                 var l = Convert.ToInt32(value);
                 setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.FtpSsl, (IntPtr) l),
-                    CurlOption.FtpSsl);
+                             CurlOption.FtpSsl);
             }
         }
 
@@ -498,7 +498,7 @@ namespace CurlSharp
                 _closePolicy = value;
                 var l = Convert.ToInt32(value);
                 setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.ClosePolicy, (IntPtr) l),
-                    CurlOption.ClosePolicy);
+                             CurlOption.ClosePolicy);
             }
         }
 
@@ -816,187 +816,187 @@ namespace CurlSharp
         public string Url
         {
             get { return _url; }
-            set { setStringOption(CurlOption.Url, ref _url, value); }
+            set { setStringOption(CurlOption.Url, out _url, value); }
         }
 
         public string Proxy
         {
             get { return _proxy; }
-            set { setStringOption(CurlOption.Proxy, ref _proxy, value); }
+            set { setStringOption(CurlOption.Proxy, out _proxy, value); }
         }
 
         public string UserPwd
         {
             get { return _userPwd; }
-            set { setStringOption(CurlOption.UserPwd, ref _userPwd, value); }
+            set { setStringOption(CurlOption.UserPwd, out _userPwd, value); }
         }
 
         public string ProxyUserPwd
         {
             get { return _proxyUserPwd; }
-            set { setStringOption(CurlOption.ProxyUserPwd, ref _proxyUserPwd, value); }
+            set { setStringOption(CurlOption.ProxyUserPwd, out _proxyUserPwd, value); }
         }
 
         public string Range
         {
             get { return _range; }
-            set { setStringOption(CurlOption.Range, ref _range, value); }
+            set { setStringOption(CurlOption.Range, out _range, value); }
         }
 
         public string PostFields
         {
             get { return _postFields; }
-            set { setStringOption(CurlOption.PostFields, ref _postFields, value); }
+            set { setStringOption(CurlOption.PostFields, out _postFields, value); }
         }
 
         public string Referer
         {
             get { return _referer; }
-            set { setStringOption(CurlOption.Referer, ref _referer, value); }
+            set { setStringOption(CurlOption.Referer, out _referer, value); }
         }
 
         public string FtpPort
         {
             get { return _ftpPort; }
-            set { setStringOption(CurlOption.FtpPort, ref _ftpPort, value); }
+            set { setStringOption(CurlOption.FtpPort, out _ftpPort, value); }
         }
 
         public string UserAgent
         {
             get { return _userAgent; }
-            set { setStringOption(CurlOption.UserAgent, ref _userAgent, value); }
+            set { setStringOption(CurlOption.UserAgent, out _userAgent, value); }
         }
 
         public string Cookie
         {
             get { return _cookie; }
-            set { setStringOption(CurlOption.Cookie, ref _cookie, value); }
+            set { setStringOption(CurlOption.Cookie, out _cookie, value); }
         }
 
         public string SslCert
         {
             get { return _sslCert; }
-            set { setStringOption(CurlOption.SslCert, ref _sslCert, value); }
+            set { setStringOption(CurlOption.SslCert, out _sslCert, value); }
         }
 
         public string SslCertPasswd
         {
             get { return _sslCertPasswd; }
-            set { setStringOption(CurlOption.SslCertPasswd, ref _sslCertPasswd, value); }
+            set { setStringOption(CurlOption.SslCertPasswd, out _sslCertPasswd, value); }
         }
 
         public string CustomRequest
         {
             get { return _customRequest; }
-            set { setStringOption(CurlOption.CustomRequest, ref _customRequest, value); }
+            set { setStringOption(CurlOption.CustomRequest, out _customRequest, value); }
         }
 
         public string Interface
         {
             get { return _interface; }
-            set { setStringOption(CurlOption.Interface, ref _interface, value); }
+            set { setStringOption(CurlOption.Interface, out _interface, value); }
         }
 
         public string Encoding
         {
             get { return _encoding; }
-            set { setStringOption(CurlOption.Encoding, ref _encoding, value); }
+            set { setStringOption(CurlOption.Encoding, out _encoding, value); }
         }
 
         public string Krb4Level
         {
             get { return _krb4Level; }
-            set { setStringOption(CurlOption.Krb4Level, ref _krb4Level, value); }
+            set { setStringOption(CurlOption.Krb4Level, out _krb4Level, value); }
         }
 
         public string CaInfo
         {
             get { return _caInfo; }
-            set { setStringOption(CurlOption.CaInfo, ref _caInfo, value); }
+            set { setStringOption(CurlOption.CaInfo, out _caInfo, value); }
         }
 
         public string RandomFile
         {
             get { return _randomFile; }
-            set { setStringOption(CurlOption.RandomFile, ref _randomFile, value); }
+            set { setStringOption(CurlOption.RandomFile, out _randomFile, value); }
         }
 
         public string EgdSocket
         {
             get { return _egdSocket; }
-            set { setStringOption(CurlOption.EgdSocket, ref _egdSocket, value); }
+            set { setStringOption(CurlOption.EgdSocket, out _egdSocket, value); }
         }
 
         public string CookieJar
         {
             get { return _cookieJar; }
-            set { setStringOption(CurlOption.CookieJar, ref _cookieJar, value); }
+            set { setStringOption(CurlOption.CookieJar, out _cookieJar, value); }
         }
 
         public string CookieFile
         {
             get { return _cookieFile; }
-            set { setStringOption(CurlOption.CookieFile, ref _cookieFile, value); }
+            set { setStringOption(CurlOption.CookieFile, out _cookieFile, value); }
         }
 
         public string SslCipherList
         {
             get { return _sslCipherList; }
-            set { setStringOption(CurlOption.SslCipherList, ref _sslCipherList, value); }
+            set { setStringOption(CurlOption.SslCipherList, out _sslCipherList, value); }
         }
 
         public string WriteInfo
         {
             get { return _writeInfo; }
-            set { setStringOption(CurlOption.WriteInfo, ref _writeInfo, value); }
+            set { setStringOption(CurlOption.WriteInfo, out _writeInfo, value); }
         }
 
         public string CaPath
         {
             get { return _caPath; }
-            set { setStringOption(CurlOption.CaPath, ref _caPath, value); }
+            set { setStringOption(CurlOption.CaPath, out _caPath, value); }
         }
 
         public string SslKey
         {
             get { return _sslKey; }
-            set { setStringOption(CurlOption.SslKey, ref _sslKey, value); }
+            set { setStringOption(CurlOption.SslKey, out _sslKey, value); }
         }
 
         public string SslEngine
         {
             get { return _sslEngine; }
-            set { setStringOption(CurlOption.SslEngine, ref _sslEngine, value); }
+            set { setStringOption(CurlOption.SslEngine, out _sslEngine, value); }
         }
 
         public string SslKeyPasswd
         {
             get { return _sslKeyPasswd; }
-            set { setStringOption(CurlOption.SslKeyPasswd, ref _sslKeyPasswd, value); }
+            set { setStringOption(CurlOption.SslKeyPasswd, out _sslKeyPasswd, value); }
         }
 
         public string ErrorBuffer
         {
             get { return _errorBuffer; }
-            set { setStringOption(CurlOption.ErrorBuffer, ref _errorBuffer, value); }
+            set { setStringOption(CurlOption.ErrorBuffer, out _errorBuffer, value); }
         }
 
         public string NetRcFile
         {
             get { return _netRcFile; }
-            set { setStringOption(CurlOption.NetRcFile, ref _netRcFile, value); }
+            set { setStringOption(CurlOption.NetRcFile, out _netRcFile, value); }
         }
 
         public string FtpAccount
         {
             get { return _ftpAccount; }
-            set { setStringOption(CurlOption.FtpAccount, ref _ftpAccount, value); }
+            set { setStringOption(CurlOption.FtpAccount, out _ftpAccount, value); }
         }
 
         public string SourceUrl
         {
             get { return _sourceUrl; }
-            set { setStringOption(CurlOption.SourceUrl, ref _sourceUrl, value); }
+            set { setStringOption(CurlOption.SourceUrl, out _sourceUrl, value); }
         }
 
         public string EffectiveUrl
@@ -1321,10 +1321,15 @@ namespace CurlSharp
             setLastError(NativeMethods.curl_easy_setopt(_pCurl, option, (IntPtr) value), option);
         }
 
-        private void setStringOption(CurlOption option, ref string field, string value)
+        private void setStringOption(CurlOption option, out string field, string value)
+        {
+            setStringOption(option, value);
+            field = value;
+        }
+
+        private void setStringOption(CurlOption option, string value)
         {
             ensureHandle();
-            field = value;
             if (string.IsNullOrEmpty(value))
             {
                 setLastError(NativeMethods.curl_easy_setopt(_pCurl, option, IntPtr.Zero), option);
@@ -1484,10 +1489,8 @@ namespace CurlSharp
                 default:
                 {
                     var s = parameter as string;
-                    if (s == null)
-                    {
-                        retCode = NativeMethods.curl_easy_setopt(_pCurl, option, IntPtr.Zero);
-                    }
+                    setStringOption(option, s);
+                    retCode = _lastErrorCode;
                     break;
                 }
             }
@@ -1788,6 +1791,7 @@ namespace CurlSharp
                 slist.Append(Marshal.PtrToStringAnsi(ptrs));
 #else
                 //TODO: implement
+                throw new NotImplementedException();
 #endif
             }
             return retCode;
@@ -1949,21 +1953,21 @@ namespace CurlSharp
             _pcbIoctl = _curlIoctlCallback;
 
             setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.WriteFunction, _pcbWrite),
-                CurlOption.WriteFunction);
+                         CurlOption.WriteFunction);
             setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.ReadFunction, _pcbRead),
-                CurlOption.ReadFunction);
+                         CurlOption.ReadFunction);
             setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.ProgressFunction, _pcbProgress),
-                CurlOption.ProgressFunction);
+                         CurlOption.ProgressFunction);
             setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.HeaderFunction, _pcbHeader),
-                CurlOption.HeaderFunction);
+                         CurlOption.HeaderFunction);
             setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.DebugFunction, _pcbDebug),
-                CurlOption.DebugFunction);
+                         CurlOption.DebugFunction);
             setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.SslCtxFunction, _pcbSslCtx),
-                CurlOption.SslCtxFunction);
+                         CurlOption.SslCtxFunction);
             setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.IoctlFunction, _pcbIoctl),
-                CurlOption.IoctlFunction);
+                         CurlOption.IoctlFunction);
             setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.NoProgress, (IntPtr) 0),
-                CurlOption.NoProgress);
+                         CurlOption.NoProgress);
 
             setWriteData(null);
             setReadData(null);
