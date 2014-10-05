@@ -1,3 +1,22 @@
+/***************************************************************************
+ *
+ * CurlS#arp
+ *
+ * Copyright (c) 2014 Dr. Masroor Ehsan (masroore@gmail.com)
+ * Portions copyright (c) 2004, 2005 Jeff Phillips (jeff@jeffp.net)
+ *
+ * This software is licensed as described in the file LICENSE, which you
+ * should have received as part of this distribution.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of this Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the LICENSE file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF
+ * ANY KIND, either express or implied.
+ *
+ **************************************************************************/
+
 namespace CurlSharp
 {
     /// <summary>
@@ -510,12 +529,6 @@ namespace CurlSharp
         ///     to disable kerberos4. The kerberos support only works for FTP.
         /// </summary>
         Krb4Level = 10063,
-
-        /// <summary>
-        ///     Last numeric entry in the enumeration. Don't use this in your
-        ///     application code.
-        /// </summary>
-        LastEntry = 135,
 
         /// <summary>
         ///     Pass an <c>int</c> as parameter. It contains the transfer speed in bytes
@@ -1304,5 +1317,287 @@ namespace CurlSharp
         ///     as described elsewhere.
         /// </summary>
         WriteInfo = 10040,
+
+
+        /// <summary>
+        ///     Set to true to enable the "TE:" header in HTTP requests to ask for compressed transfer-encoded responses. Set to 0
+        ///     to disable the use of TE: in outgoing requests. The current default is false, but it might change in a future
+        ///     libcurl release. libcurl will ask for the compressed methods it knows of, and if that isn't any, it will not ask
+        ///     for transfer-encoding at all even if this option is set to true.
+        /// </summary>
+        TransferEncoding = 207,
+
+        /// <summary>
+        ///     Callback function for closing socket (instead of close(2)). The callback should have type curl_closesocket_callback
+        /// </summary>
+        CloseSocketFunction = 20208,
+        CloseSocketData = 10209,
+
+
+        /// <summary>
+        ///     feed cookies into cookie engine
+        /// </summary>
+        CookieList = 10135,
+
+        /// <summary>
+        ///     Select "file method" to use when doing FTP, see the curl_ftpmethod above.
+        /// </summary>
+        FtpFileMethod = 138,
+
+        /// <summary>
+        ///     Local port number to bind the socket to
+        /// </summary>
+        LocalPort = 139,
+
+        /// <summary>
+        ///     Number of ports to try, including the first one set with LocalPort. Thus, setting it to 1 will make no additional
+        ///     attempts but the first.
+        /// </summary>
+        LocalPortRange = 140,
+
+        /// <summary>
+        ///     No transfer, set up connection and let application use the socket by extracting it with CURLINFO_LASTSOCKET
+        /// </summary>
+        ConnectOnly = 141,
+
+        /// <summary>
+        ///     if the connection proceeds too quickly then need to slow it down limit-rate: maximum number of bytes per second to
+        ///     send or receive
+        /// </summary>
+        MaxSendSpeedLarge = 30145,
+        MaxRecvSpeedLarge = 30146,
+
+        /// <summary>
+        ///     Pointer to command string to send if USER/PASS fails.
+        /// </summary>
+        FtpAlternativeToUser = 10147,
+
+        /// <summary>
+        ///     Callback function for setting socket options
+        /// </summary>
+        SockoptFunction = 20148,
+        SockoptData = 149,
+
+
+        /// <summary>
+        ///     Set to false to disable session ID re-use for this transfer, default is enabled (== true)
+        /// </summary>
+        SslSessionidCache = 150,
+
+        /// <summary>
+        ///     Allowed SSH authentication methods
+        /// </summary>
+        SshAuthTypes = 151,
+
+        /// <summary>
+        ///     Used by scp/sftp to do public/private key authentication
+        /// </summary>
+        SshPublicKeyfile = 10152,
+        SshPrivateKeyfile = 10152,
+
+        /// <summary>
+        ///     Same as Timeout and ConnectTimeout, but with ms resolution
+        /// </summary>
+        TimeoutMs = 155,
+        ConnectTimeoutMs = 156,
+
+        /// <summary>
+        ///     Set to false to disable the libcurl's decoding and thus pass the raw body data to the application even when it is
+        ///     encoded/compressed
+        /// </summary>
+        HttpTransferDecoding = 157,
+        HttpContentDecoding = 158,
+
+        /// <summary>
+        ///     Permission used when creating new files and directories on the remote server for protocols that support it,
+        ///     SFTP/SCP/FILE
+        /// </summary>
+        NewFilePerms = 159,
+        NewDirectoryPerms = 160,
+
+        /// <summary>
+        ///     Set the behaviour of POST when redirecting. Values must be set to one of CURL_REDIR* defines below. This used to be
+        ///     called CURLOPT_POST301
+        /// </summary>
+        PostRedir = 161,
+
+        /// <summary>
+        ///     Used by scp/sftp to verify the host's public key
+        /// </summary>
+        SshHostPublicKeyMd5 = 10162,
+
+
+        /// <summary>
+        ///     Callback function for opening socket (instead of socket(2)). Optionally, callback is able change the address or
+        ///     refuse to connect returning CURL_SOCKET_BAD.  The callback should have type curl_opensocket_callback
+        /// </summary>
+        OpenSocketFunction = 20163,
+        OpenSocketData = 10164,
+
+        /// <summary>
+        ///     POST volatile input fields.
+        /// </summary>
+        CopyPostFields = 10165,
+
+        /// <summary>
+        ///     set transfer mode (;type=<a| i>) when doing FTP via an HTTP proxy
+        /// </summary>
+        ProxyTransferMode = 166,
+
+        /// <summary>
+        ///     Callback function for seeking in the input stream
+        /// </summary>
+        SeekFunction = 20167,
+        SeekData = 10168,
+
+        /// <summary>
+        ///     CRL file
+        /// </summary>
+        CrlFile = 10169,
+
+        /// <summary>
+        ///     Issuer certificate
+        /// </summary>
+        IssuerCert = 10170,
+
+        /// <summary>
+        ///     (IPv6) Address scope
+        /// </summary>
+        AddressScope = 171,
+
+        /// <summary>
+        ///     Collect certificate chain info and allow it to get retrievable with CURLINFO_CERTINFO after the transfer is
+        ///     complete.
+        /// </summary>
+        CertInfo = 172,
+
+        /// <summary>
+        ///     "name" and "pwd" to use when fetching.
+        /// </summary>
+        Username = 10173,
+        Password = 10174,
+
+        /// <summary>
+        ///     "name" and "pwd" to use with Proxy when fetching.
+        /// </summary>
+        ProxyUsername = 10175,
+        ProxyPassword = 10176,
+
+        /// <summary>
+        ///     Comma separated list of hostnames defining no-proxy zones. These should match both hostnames directly, and
+        ///     hostnames within a domain. For example, local.com will match local.com and www.local.com, but NOT notlocal.com or
+        ///     www.notlocal.com. For compatibility with other implementations of this, .local.com will be considered to be the
+        ///     same as local.com. A single * is the only valid wildcard, and effectively disables the use of proxy.
+        /// </summary>
+        NoProxy = 10177,
+
+
+        /// <summary>
+        ///     block size for TFTP transfers
+        /// </summary>
+        TftpBlksize = 178,
+
+        /// <summary>
+        ///     Socks service
+        /// </summary>
+        Socks5GssApiService = 10179,
+        Socks5GssApiNec = 180,
+
+        /// <summary>
+        ///     set the bitmask for the protocols that are allowed to be used for the transfer, which thus helps the app which
+        ///     takes URLs from users or other external inputs and want to restrict what protocol(s) to deal with. Defaults to
+        ///     CURLPROTO_ALL.
+        /// </summary>
+        Protocols = 181,
+
+        /// <summary>
+        ///     set the bitmask for the protocols that libcurl is allowed to follow to, as a subset of the CURLOPT_PROTOCOLS ones.
+        ///     That means the protocol needs to be set in both bitmasks to be allowed to get redirected to. Defaults to all
+        ///     protocols except FILE and SCP.
+        /// </summary>
+        RedirProtocols = 182,
+        
+        /// <summary>
+        ///     Set the SSH knownhost file name to use
+        /// </summary>
+        SshKnownHosts = 10183,
+
+        /// <summary>
+        ///     set the SSH host key callback, must point to a curl_sshkeycallback function
+        /// </summary>
+        SshKeyFunction = 20184,
+
+        /// <summary>
+        ///     Set the SSH host key callback custom pointer
+        /// </summary>
+        SshKeydata = 10185,
+
+        /// <summary>
+        ///     Set the SMTP mail originator
+        /// </summary>
+        MailFrom = 10186,
+
+        /// <summary>
+        ///     Set the SMTP mail receiver(s)
+        /// </summary>
+        MailRcpt = 10187,
+
+        /// <summary>
+        ///     FTP: send PRET before PASV
+        /// </summary>
+        FtpUsePret = 188,
+
+        /// <summary>
+        ///     Set the interface string to use as outgoing network interface for DNS requests. Only supported by the c-ares DNS
+        ///     backend */
+        /// </summary>
+        DnsInterface = 10221,
+
+        /// <summary>
+        ///     Set the local IPv4 address to use for outgoing DNS requests. Only supported by the c-ares DNS backend
+        /// </summary>
+        DnsLocalIp4 = 10222,
+
+        /// <summary>
+        ///     Set the local IPv6 address to use for outgoing DNS requests.  Only supported by the c-ares DNS backend
+        /// </summary>
+        DnsLocalIp6 = 10223,
+
+        /// <summary>
+        ///     Set authentication options directly
+        /// </summary>
+        LoginOptions = 10224,
+
+        /// <summary>
+        ///     Enable/disable TLS NPN extension (http2 over ssl might fail without)
+        /// </summary>
+        SslEnableNpn = 225,
+
+        /// <summary>
+        ///     Enable/disable TLS ALPN extension (http2 over ssl might fail without)
+        /// </summary>
+        SslEnableAlpn = 226,
+
+        /// <summary>
+        ///     Time to wait for a response to a HTTP request containing an Expect: 100-continue header before sending the data
+        ///     anyway.
+        /// </summary>
+        Expect100TimeoutMs = 227,
+
+        /// <summary>
+        ///     This points to a linked list of headers used for proxy requests only, struct curl_slist kind
+        /// </summary>
+        ProxyHeader = 228,
+
+        /// <summary>
+        ///     Pass in a bitmask of "header options"
+        /// </summary>
+        HeaderOpt = 229,
+
+        /// <summary>
+        ///     Last numeric entry in the enumeration. Don't use this in your
+        ///     application code.
+        /// </summary>
+        LastEntry = 230,
     };
 }
