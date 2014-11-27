@@ -10,7 +10,7 @@ namespace EasyPost
     {
         // Upload the provided PHP script (testpost.php) to webroot and modify the 
         // following URL accordingly
-        private const string TEST_URL = "http://localhost/testpost.php";
+        private const string TEST_URL = "http://www.wp.pl";
 
         private static void Main(string[] args)
         {
