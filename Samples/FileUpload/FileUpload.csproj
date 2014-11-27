@@ -51,7 +51,4 @@
       <Name>CurlSharp</Name>
     </ProjectReference>
   </ItemGroup>
-  <PropertyGroup>
-    <PostBuildEvent>xcopy /y /e $(SolutionDir)\libs\*.* $(TargetDir)</PostBuildEvent>
-  </PropertyGroup>
 </Project>
