@@ -253,7 +253,8 @@ namespace CurlSharp
         }
 
         /// <summary>
-        ///     Obtain status information for a CurlMulti transfer.
+        ///     Obtain status information for a CurlMulti transfer. Requires
+        ///     CurlSharp be compiled with the libcurlshim helper.
         /// </summary>
         /// <returns>
         ///     An array of <see cref="CurlMultiInfo" /> objects, one for each
@@ -285,8 +286,17 @@ namespace CurlSharp
                 }
                 NativeMethods.curl_shim_multi_info_free(pInfo);
             }
-#endif
+
             return _multiInfo;
+
+#else
+
+            throw new NotImplementedException(
+                "Sorry, CurlMulti.InfoRead is not implemented on this system."
+            );
+
+#endif
+
         }
     }
 }
