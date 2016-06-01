@@ -1,6 +1,13 @@
 --- Premake5 Dev -----
 
-solution "CurlSharp"
+local name_suffix = ""
+if _ACTION == 'gmake' then
+    name_suffix = "-" .. _ACTION
+end
+
+local curlsharp_corelib_name = "CurlSharp" .. name_suffix
+
+solution ("CurlSharp-" .. (_ACTION or ""))
     configurations { "Debug", "Release" }
     location ("./build/" .. (_ACTION or ""))
     debugdir ("./bin")
@@ -15,7 +22,7 @@ configuration "Release"
     flags { "Optimize" }
 
 ------------------CurlSharp--------------------
-project "CurlSharp"
+project (curlsharp_corelib_name)
 language "C#"
 kind "SharedLib"
 framework "4.5"
@@ -32,11 +39,13 @@ links
 }
 
 ------------------EasyGet--------------------
-project "EasyGet"
+project ("EasyGet" .. name_suffix)
 language "C#"
 kind "ConsoleApp"
 framework "4.5"
 targetdir "./bin"
+
+dependson { curlsharp_corelib_name }
 
 files
 {
@@ -47,6 +56,6 @@ links
 {
     "System",
     "System.Core",
-    "./bin/CurlSharp",
+    "./bin/" .. curlsharp_corelib_name,
 }
 
