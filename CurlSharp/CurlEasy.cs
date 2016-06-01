@@ -228,6 +228,8 @@ namespace CurlSharp
         /// <returns></returns>
         private CurlCode setWriteData(object data)
         {
+            freeHandle(ref _curlWriteData);
+
             _curlWriteData = getHandle(data);
             return setCurlOpt(_curlWriteData, CurlOption.WriteData);
         }
@@ -1631,7 +1633,11 @@ namespace CurlSharp
         public CurlCode Perform()
         {
             ensureHandle();
-            return NativeMethods.curl_easy_perform(_pCurl);
+
+            CurlCode nativeRet = NativeMethods.curl_easy_perform(_pCurl);
+            freeHandle(ref _curlWriteData);
+
+            return nativeRet;
         }
 
         /// <summary>
