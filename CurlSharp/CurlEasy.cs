@@ -228,6 +228,8 @@ namespace CurlSharp
         /// <returns></returns>
         private CurlCode setWriteData(object data)
         {
+            freeHandle(ref _curlWriteData);
+
             _curlWriteData = getHandle(data);
             return setCurlOpt(_curlWriteData, CurlOption.WriteData);
         }
@@ -1323,6 +1325,12 @@ namespace CurlSharp
 
         private void setStringOption(CurlOption option, out string field, string value)
         {
+            // all string options are copied by the library, the only exception to this rule is PostFields option
+            if (option == CurlOption.PostFields)
+                option = CurlOption.CopyPostFields;
+            if (option == CurlOption.CopyPostFields && PostFieldSize == 0)
+                PostFieldSize = System.Text.Encoding.UTF8.GetByteCount(value);
+
             setStringOption(option, value);
             field = value;
         }
@@ -1343,7 +1351,13 @@ namespace CurlSharp
 #else
                 // convert the string to a null-terminated one
                 var buffer = System.Text.Encoding.UTF8.GetBytes(value + "\0");
-                setLastError(NativeMethods.curl_easy_setopt(_pCurl, option, buffer), option);
+                unsafe
+                {
+                    fixed (byte *bufPtr = &buffer[0])
+                    {
+                        setLastError(NativeMethods.curl_easy_setopt(_pCurl, option, buffer), option);
+                    }
+                }
 #endif
             }
         }
@@ -1631,7 +1645,11 @@ namespace CurlSharp
         public CurlCode Perform()
         {
             ensureHandle();
-            return NativeMethods.curl_easy_perform(_pCurl);
+
+            CurlCode nativeRet = NativeMethods.curl_easy_perform(_pCurl);
+            freeHandle(ref _curlWriteData);
+
+            return nativeRet;
         }
 
         /// <summary>
