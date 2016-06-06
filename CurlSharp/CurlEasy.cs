@@ -181,6 +181,7 @@ namespace CurlSharp
             Curl.EnsureCurl();
             _pCurl = NativeMethods.curl_easy_init();
             ensureHandle();
+            NativeMethods.curl_easy_setopt(_pCurl, CurlOption.NoSignal, 1L);
             NativeMethods.curl_easy_setopt(_pCurl, CurlOption.NoProgress, IntPtr.Zero);
 #if USE_LIBCURLSHIM
             _pMyStrings = NativeMethods.curl_shim_alloc_strings();
