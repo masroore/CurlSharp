@@ -103,6 +103,7 @@ namespace InfoDemo
             {
                 Console.WriteLine(ex);
             }
+            Console.ReadLine();
         }
     }
 }

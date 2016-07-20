@@ -37,5 +37,6 @@ internal class VersionData
         {
             Console.WriteLine(ex);
         }
+        Console.ReadLine();
     }
 }

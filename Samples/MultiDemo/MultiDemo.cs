@@ -73,6 +73,7 @@ namespace MultiDemo
             {
                 Console.WriteLine(ex);
             }
+            Console.ReadLine();
         }
 
         private static CurlEasy CreateEasy(string url, CurlWriteCallback wf)
