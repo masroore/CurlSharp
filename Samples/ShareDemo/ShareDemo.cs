@@ -58,6 +58,7 @@ namespace ShareDemo
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
+                Console.ReadLine();
             }
         }
 

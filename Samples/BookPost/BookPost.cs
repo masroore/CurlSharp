@@ -36,6 +36,7 @@ namespace BookPost
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
+                Console.ReadLine();
             }
         }
 

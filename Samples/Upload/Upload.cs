@@ -39,6 +39,7 @@ namespace Upload
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
+                Console.ReadLine();
             }
         }
 
