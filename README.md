@@ -81,8 +81,8 @@ Several more samples are included in the Samples folder.
 #### Credits ####
 CurlSharp Written by Dr. Masroor Ehsan.
 
-CurlSharp is based on original code by Jeff Phillips [libcurl.NET](http://sourceforge.net/projects/libcurl-net/). Original code has been modified and greatly extended.
+CurlSharp is based on original code by Jeff Phillips [libcurl.NET](http://sourceforge.net/projects/libcurl-net/). Original code has been modified and greatly enhanced.
 
 ----------
 
-CurlSharp Copyright © 2013 Dr. Masroor Ehsan
+CurlSharp Copyright © 2013-16 Dr. Masroor Ehsan
