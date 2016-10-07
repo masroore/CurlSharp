@@ -1648,7 +1648,9 @@ namespace CurlSharp
             ensureHandle();
 
             CurlCode nativeRet = NativeMethods.curl_easy_perform(_pCurl);
+#if !USE_LIBCURLSHIM
             freeHandle(ref _curlWriteData);
+#endif
 
             return nativeRet;
         }
