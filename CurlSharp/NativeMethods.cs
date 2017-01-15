@@ -104,10 +104,10 @@ namespace CurlSharp
         internal static NETPlatformType GetPlatformType()        
         {
             NETPlatformType type = NETPlatformType.Unknown;
-            
-            if (Type.GetType("Mono.Runtime") != null)
+
+            if (Type.GetType("Mono.Runtime") != null && Environment.OSVersion.Platform == PlatformID.Unix)
             {
-                // Linux: Mono
+                // Mono on Linux or OSX
                 type = NETPlatformType.Mono;
             }
             else
@@ -400,7 +400,7 @@ namespace CurlSharp
             switch (PlatformType)
             {
                 case NETPlatformType.Mono:
-                    curl_easy_cleanup(pCurl);
+                    curl_easy_cleanup_linux(pCurl);
                     break;
                 case NETPlatformType.WinX86:
                     curl_easy_cleanup_x86(pCurl);
@@ -944,7 +944,7 @@ namespace CurlSharp
                                         ref timeout);
                   break;
                
-               /* case NETPlatformType.Winx64:
+               /* case NETPlatformType.WinX64:
                     result = curl_multi_fdset_x64(pmulti, ref read_fd_set,
                         ref write_fd_set, ref exc_fd_set, ref  max_fd);
                     break;
@@ -1740,10 +1740,10 @@ namespace CurlSharp
 
             switch (PlatformType)
             {
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
                     curl_shim_initialize_x86();
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     curl_shim_initialize_x64();
                     break;
                 default:
@@ -1768,10 +1768,10 @@ namespace CurlSharp
 
             switch (PlatformType)
             {
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
                     curl_shim_cleanup_x86();
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     curl_shim_cleanup_x64();
                     break;
                 default:
@@ -1787,7 +1787,7 @@ namespace CurlSharp
         [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_alloc_strings", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr curl_shim_alloc_strings_x86();
 
-        internal static void curl_shim_alloc_strings()
+        internal static IntPtr curl_shim_alloc_strings()
         {
 
             if (PlatformType == NETPlatformType.Unknown)
@@ -1798,12 +1798,10 @@ namespace CurlSharp
 
             switch (PlatformType)
             {
-                case NETPlatformType.Winx86:
-                    curl_shim_alloc_strings_x86();
-                    break;
-                case NETPlatformType.Winx64:
-                    curl_shim_alloc_strings_x64();
-                    break;
+                case NETPlatformType.WinX86:
+                    return curl_shim_alloc_strings_x86();
+                case NETPlatformType.WinX64:
+                    return curl_shim_alloc_strings_x64();
                 default:
                     throw new InvalidOperationException("Can not run on other platform than Win NET");
 
@@ -1833,11 +1831,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
                
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_add_string_to_slist_x86(pStrings, str);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     result = curl_shim_add_string_to_slist_x64(pStrings, str);
                     break;
                 default:
@@ -1870,11 +1868,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_get_string_from_slist_x86(pSlist, ref pStr);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     result = curl_shim_get_string_from_slist_x64(pSlist, ref pStr);
                     break;
                 default:
@@ -1906,11 +1904,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_add_string_x86(pStrings,str);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     result = curl_shim_add_string_x64(pStrings, str);
                     break;
                 default:
@@ -1938,11 +1936,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     curl_shim_free_strings_x86(pStrings);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     curl_shim_free_strings_x64(pStrings);
                     break;
                 default:
@@ -1987,7 +1985,7 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_install_delegates_x86(pCurl, pThis,
              pWrite,pRead,
@@ -1995,7 +1993,7 @@ namespace CurlSharp
              pHeader, pCtx,
             pIoctl);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     result = curl_shim_install_delegates_x64(pCurl, pThis,
              pWrite, pRead,
              pProgress, pDebug,
@@ -2025,11 +2023,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                 curl_shim_cleanup_delegates_x86(pThis);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     curl_shim_cleanup_delegates_x64(pThis);
                     break;
                 default:
@@ -2058,12 +2056,12 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                      curl_shim_get_file_time_x86(unixTime,
             ref  yy, ref mm, ref dd, ref hh, ref mn, ref ss);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     curl_shim_get_file_time_x64(unixTime,
                ref  yy, ref mm, ref dd, ref hh, ref mn, ref ss);
                     break;
@@ -2091,11 +2089,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     curl_shim_free_slist_x86(p);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     curl_shim_free_slist_x64(p);
                     break;
                 default:
@@ -2122,11 +2120,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_alloc_fd_sets_x86();
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     result = curl_shim_alloc_fd_sets_x64();
                     break;
                 default:
@@ -2153,11 +2151,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     curl_shim_free_fd_sets_x86(fdsets);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     curl_shim_free_fd_sets_x64(fdsets);
                     break;
                 default:
@@ -2189,12 +2187,12 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_multi_fdset_x86(multi,
                         fdsets, ref  maxFD);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     result = curl_shim_multi_fdset_x64(multi,
                         fdsets, ref  maxFD);
           
@@ -2228,12 +2226,12 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_select_x86(maxFD, fdsets,
             milliseconds);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                      result = curl_shim_select_x64(maxFD, fdsets,
                 milliseconds);
 
@@ -2267,11 +2265,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_multi_info_read_x86(multi, ref nMsgs);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     result = curl_shim_multi_info_read_x64(multi, ref nMsgs);
 
                     break;
@@ -2301,11 +2299,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     curl_shim_multi_info_free_x86(multiInfo);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     curl_shim_multi_info_free_x64(multiInfo);
                     break;
                 default:
@@ -2332,11 +2330,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_formadd_x86( ppForms, pParams,nParams); 
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     result = curl_shim_formadd_x64(ppForms, pParams, nParams); 
 
                     break;
@@ -2368,12 +2366,12 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_install_share_delegates_x86(pShare,
              pThis,pLock, pUnlock);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     result = curl_shim_install_share_delegates_x64(pShare,
               pThis, pLock, pUnlock);
 
@@ -2402,11 +2400,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     curl_shim_cleanup_share_delegates_x86(pShare);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     curl_shim_cleanup_share_delegates_x86(pShare);
                     break;
                 default:
@@ -2432,11 +2430,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_get_version_int_value_x86(p, offset);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     result = curl_shim_get_version_int_value_x64(p, offset);
 
                     break;
@@ -2464,11 +2462,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_get_version_char_ptr_x86(p, offset);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     result = curl_shim_get_version_char_ptr_x64(p, offset);
 
                     break;
@@ -2496,11 +2494,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_get_number_of_protocols_x86(p, offset);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     result = curl_shim_get_number_of_protocols_x64(p, offset);
 
                     break;
@@ -2531,11 +2529,11 @@ namespace CurlSharp
             switch (PlatformType)
             {
 
-                case NETPlatformType.Winx86:
+                case NETPlatformType.WinX86:
 
                     result = curl_shim_get_protocol_string_x86(p, offset, index);
                     break;
-                case NETPlatformType.Winx64:
+                case NETPlatformType.WinX64:
                     result = curl_shim_get_protocol_string_x64(p, offset, index);
                     break;
                 default:
