@@ -12,14 +12,14 @@ libcurl is a web-client library that can provide cross-platform .Net application
 - File transfer resume, byte ranges, multiple asynchronous transfers.
 - and much more...
 
-CurlSharp provides simple get/set properties for libcurl's options and information functions, event-based hooks to libcurl's I/O, status, and progress callbacks, and wraps the c-style file I/O behind simple filename properties. The CurlEasy class contains has more than 100 different properties and methods to handle a wide variety of URL transfer requirements. While this may seem overwhelming at first glance, the good news is you will probably need only a tiny subset of these for most situations.
+CurlSharp provides simple get/set properties for libcurl's options and information functions, event-based hooks to libcurl's I/O, status, and progress callbacks, and wraps the c-style file I/O behind simple filename properties. The `CurlEasy` class contains has more than 100 different properties and methods to handle a wide variety of URL transfer requirements. While this may seem overwhelming at first glance, the good news is you will probably need only a tiny subset of these for most situations.
 
 The CurlSharp library consists of these parts:
 
 - Pure C# P/Invoke bindings to the libcurl API.
 - Optional libcurlshim helper DLL [WIN32].
-- The `CurlEasy` class which provides a wrapper around a curl_easy session.
-- The `CurlMulti` class, which serves as a container for multiple CurlEasy objects, and provides a wrapper around a curl_multi session.
+- The `CurlEasy` class which provides a wrapper around a `curl_easy` session.
+- The `CurlMulti` class, which serves as a container for multiple CurlEasy objects, and provides a wrapper around a `curl_multi` session.
 - The `CurlShare` class which provides an infrastructure for serializing access to data shared by multiple `CurlEasy` objects, including cookie data and DNS hosts. It implements the `curl_share_xxx` API. 
 - The `CurlHttpMultiPartForm` to easily construct multi-part forms.
 - The `CurlSlist` class which wraps a linked list of strings used in cURL.
@@ -84,11 +84,19 @@ using (var easy = new CurlEasy())
 HTTP/2.0 download:
 
 ```c#
+
 using (var easy = new CurlEasy())
 {
-    easy.Url = "http://hostname/testpost.php";
-    easy.HttpVersion = CurlHttpVersion.Http2_0,
+    easy.Url = "https://google.com/";
     easy.WriteFunction = OnWriteData;
+
+    // HTTP/2 please
+    easy.HttpVersion = CurlHttpVersion.Http2_0;
+
+    // skip SSL verification during debugging
+    easy.SslVerifyPeer = false;
+    easy.SslVerifyhost = false;
+
     easy.Perform();
 }
 ```
@@ -103,4 +111,4 @@ CurlSharp is based on original code by Jeff Phillips [libcurl.NET](http://source
 
 ----------
 
-CurlSharp Copyright © 2013-16 Dr. Masroor Ehsan
+CurlSharp Copyright © 2013-17 Dr. Masroor Ehsan
