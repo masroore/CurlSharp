@@ -1475,7 +1475,7 @@ namespace CurlSharp
                     result = curl_share_strerror_x86(errorCode);
                     break;
                 case NETPlatformType.WinX64:
-                    result = curl_share_strerror(errorCode);
+                    result = curl_share_strerror_x64(errorCode);
                     break;
                 default:
                     throw new InvalidOperationException("Can not determine type of NET platform");
