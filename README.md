@@ -31,7 +31,9 @@ CurlSharp is available for these platforms:
 - [Experimental] Mono Linux & OS X support
 
 #### Examples ####
+
 A simple HTTP download program...
+
 ```c#
 using System;
 using CurlSharp;
@@ -63,8 +65,10 @@ internal class EasyGet
       return size*nmemb;
   }
 }
-```	
+```
+
 Simple HTTP Post example:
+
 ```c#
 using (var easy = new CurlEasy())
 {
@@ -76,9 +80,23 @@ using (var easy = new CurlEasy())
     easy.Perform();
 }
 ```
-Several more samples are included in the Samples folder.
+
+HTTP/2.0 download:
+
+```c#
+using (var easy = new CurlEasy())
+{
+    easy.Url = "http://hostname/testpost.php";
+    easy.HttpVersion = CurlHttpVersion.Http2_0,
+    easy.WriteFunction = OnWriteData;
+    easy.Perform();
+}
+```
+
+More samples are included in the Samples folder.
 
 #### Credits ####
+
 CurlSharp Written by Dr. Masroor Ehsan.
 
 CurlSharp is based on original code by Jeff Phillips [libcurl.NET](http://sourceforge.net/projects/libcurl-net/). Original code has been modified and greatly enhanced.
