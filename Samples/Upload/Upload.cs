@@ -5,12 +5,13 @@
 using System;
 using System.IO;
 using CurlSharp;
+using static System.Console;
 
 namespace Upload
 {
     internal class Upload
     {
-        public static void Main(String[] args)
+        public static void Main(string[] args)
         {
             try
             {
@@ -38,27 +39,22 @@ namespace Upload
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
-                Console.ReadLine();
+                WriteLine(ex);
+                ReadLine();
             }
         }
 
-        public static Int32 OnReadData(Byte[] buf, Int32 size, Int32 nmemb, Object extraData)
+        public static int OnReadData(byte[] buf, int size, int nmemb, object extraData)
         {
             var fs = (FileStream) extraData;
             return fs.Read(buf, 0, size*nmemb);
         }
-        
-        public static void OnDebug(CurlInfoType infoType, String msg, Object extraData)
+
+        public static void OnDebug(CurlInfoType infoType, string msg, int size, object extraData) => WriteLine(msg);
+
+        public static int OnProgress(object extraData, double dlTotal, double dlNow, double ulTotal, double ulNow)
         {
-            Console.WriteLine(msg);
-        }
-    
-        public static Int32 OnProgress(Object extraData, Double dlTotal,
-            Double dlNow, Double ulTotal, Double ulNow)
-        {
-            Console.WriteLine("Progress: {0} {1} {2} {3}",
-                dlTotal, dlNow, ulTotal, ulNow);
+            WriteLine($"Progress: {dlTotal} {dlNow} {ulTotal} {ulNow}");
             return 0; // standard return from PROGRESSFUNCTION
         }
     }

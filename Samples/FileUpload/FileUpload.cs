@@ -5,12 +5,13 @@
 
 using System;
 using CurlSharp;
+using static System.Console;
 
 namespace FileUpload
 {
     internal class FileUpload
     {
-        public static void Main(String[] args)
+        public static void Main(string[] args)
         {
             try
             {
@@ -61,22 +62,22 @@ namespace FileUpload
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
-                Console.ReadLine();
+                WriteLine(ex);
+                ReadLine();
             }
         }
 
-        public static void OnDebug(CurlInfoType infoType, String msg, Object extraData)
+        public static void OnDebug(CurlInfoType infoType, string msg, int size, object extraData)
         {
             // print out received data only
             if (infoType == CurlInfoType.DataIn)
-                Console.WriteLine(msg);
+                WriteLine(msg);
         }
 
 
-        public static Int32 OnProgress(Object extraData, Double dlTotal, Double dlNow, Double ulTotal, Double ulNow)
+        public static int OnProgress(object extraData, double dlTotal, double dlNow, double ulTotal, double ulNow)
         {
-            Console.WriteLine("Progress: {0} {1} {2} {3}", dlTotal, dlNow, ulTotal, ulNow);
+            WriteLine($"Progress: {dlTotal} {dlNow} {ulTotal} {ulNow}");
             return 0; // standard return from PROGRESSFUNCTION
         }
     }
