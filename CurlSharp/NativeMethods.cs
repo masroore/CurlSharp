@@ -2,7 +2,7 @@
  *
  * CurlS#arp
  *
- * Copyright (c) 2014 Dr. Masroor Ehsan (masroore@gmail.com)
+ * Copyright (c) 2014-2017 Dr. Masroor Ehsan (masroore@gmail.com)
  * Portions copyright (c) 2004, 2005 Jeff Phillips (jeff@jeffp.net)
  * Portions copyright (c) 2017 Katelyn Gigante (https://github.com/silasary)
  *
@@ -19,6 +19,7 @@
  **************************************************************************/
 
 //#define USE_LIBCURLSHIM
+
 using System;
 using System.IO;
 using System.Reflection;
@@ -31,23 +32,19 @@ namespace CurlSharp
     /// </summary>
     internal static unsafe class NativeMethods
     {
-        private const string CURL_LIB_X64 = "libcurl.dll"; // should be in amd64 directory
+        private const string CURL_LIB_WIN = "libcurl.dll"; // should be in amd64 directory
 
-        private const string CURL_LIB_X86 = "libcurl.dll"; // should be in i386 directory
+        private const string CURL_LIB_UNIX = "libcurl";
 
-        private const string CURL_LIB_LINUX = "libcurl";
+        private const string CURLSHIM_LIB_WIN = "libcurlshim.dll";
 
-        private const string CURLSHIM_LIB_X64 = "libcurlshim64.dll";
+        private const string LIBC_LINUX = "libc";
 
-        private const string CURLSHIM_LIB_X86 = "libcurlshim.dll";
+        private const string WINSOCK_LIB = "ws2_32.dll";
 
-        private const string WINSOCK_LIB_LINUX = "libc";
+        private const string LIB_DIR_WIN64 = "amd64";
 
-        private const string WINSOCK_LIB_X86 = "ws2_32.dll";
-
-        private const string LIBX64DIR = "amd64";
-
-        private const string LIBX86DIR = "i386";
+        private const string LIB_DIR_WIN32 = "i386";
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool SetDllDirectory(string lpPathName);
@@ -55,9 +52,9 @@ namespace CurlSharp
         internal enum NETPlatformType
         {
             Unknown,
-            Mono,
-            WinX64,
-            WinX86
+            Unix,
+            Win64,
+            Win32
         }
 
         internal static string AssemblyDirectory
@@ -78,17 +75,20 @@ namespace CurlSharp
             var dllSubFolder = string.Empty;
             var type = GetPlatformType();
 
+            if (type == NETPlatformType.Unknown)
+                throw new InvalidOperationException("Can not determine type of NET platform");
+
             switch (type)
             {
-                case NETPlatformType.WinX64:
-                    dllSubFolder = LIBX64DIR;
+                case NETPlatformType.Win64:
+                    dllSubFolder = LIB_DIR_WIN64;
                     break;
-                case NETPlatformType.WinX86:
-                    dllSubFolder = LIBX86DIR;
+                case NETPlatformType.Win32:
+                    dllSubFolder = LIB_DIR_WIN32;
                     break;
             }
 
-            if (type == NETPlatformType.WinX86 || type == NETPlatformType.WinX64)
+            if ((type == NETPlatformType.Win32) || (type == NETPlatformType.Win64))
             {
                 var path = Path.Combine(AssemblyDirectory, dllSubFolder);
                 SetDllDirectory(path);
@@ -101,17 +101,18 @@ namespace CurlSharp
         {
             var type = NETPlatformType.Unknown;
 
-            if (Type.GetType("Mono.Runtime") != null && Environment.OSVersion.Platform == PlatformID.Unix)
-            {
-                // Mono on Linux or OSX
-                type = NETPlatformType.Mono;
-            }
+            if ((Type.GetType("Mono.Runtime") != null) && (Environment.OSVersion.Platform == PlatformID.Unix))
+                type = NETPlatformType.Unix;
             else
-            {
-                // this is Windows NET
-                if (IntPtr.Size == 8) type = NETPlatformType.WinX64;
-                else if (IntPtr.Size == 4) type = NETPlatformType.WinX86;
-            }
+                switch (IntPtr.Size)
+                {
+                    case 8:
+                        type = NETPlatformType.Win64;
+                        break;
+                    case 4:
+                        type = NETPlatformType.Win32;
+                        break;
+                }
 
             return type;
         }
@@ -119,14 +120,11 @@ namespace CurlSharp
         // internal delegates from cURL
 
         // libcurl imports
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_global_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_global_init_linux(int flags);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_global_init", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_global_init_unix(int flags);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_global_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_global_init_x64(int flags);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_global_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_global_init_x86(int flags);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_global_init", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_global_init_win(int flags);
 
         private static void InitPlatformType()
         {
@@ -135,246 +133,119 @@ namespace CurlSharp
 
         internal static CurlCode curl_global_init(int flags)
         {
-            CurlCode result;
             InitPlatformType();
 
             switch (PlatformType)
             {
-                case NETPlatformType.Mono:
-                    result = curl_global_init_linux(flags);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_global_init_x86(flags);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_global_init_x64(flags);
-                    break;
+                case NETPlatformType.Unix:
+                    return curl_global_init_unix(flags);
                 default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
+                    return curl_global_init_win(flags);
             }
-
-            return result;
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_global_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_global_cleanup_linux();
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_global_cleanup", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_global_cleanup_unix();
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_global_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_global_cleanup_x64();
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_global_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_global_cleanup_x86();
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_global_cleanup", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_global_cleanup_win();
 
         internal static void curl_global_cleanup()
         {
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    curl_global_cleanup_linux();
-                    break;
-                case NETPlatformType.WinX86:
-                    curl_global_cleanup_x86();
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_global_cleanup_x64();
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
+            if (PlatformType == NETPlatformType.Unix)
+                curl_global_cleanup_unix();
+            else
+                curl_global_cleanup_win();
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_escape", CallingConvention = CallingConvention.Cdecl,
-            CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_escape_linux(string url, int length);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_escape", CallingConvention = CallingConvention.Cdecl,
+             CharSet = CharSet.Ansi)]
+        private static extern IntPtr curl_escape_unix(string url, int length);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_escape", CallingConvention = CallingConvention.Cdecl,
-            CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_escape_x64(string url, int length);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_escape", CallingConvention = CallingConvention.Cdecl,
-            CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_escape_x86(string url, int length);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_escape", CallingConvention = CallingConvention.Cdecl,
+             CharSet = CharSet.Ansi)]
+        private static extern IntPtr curl_escape_win(string url, int length);
 
         internal static IntPtr curl_escape(string url, int length)
         {
-            IntPtr result;
             InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_escape_linux(url, length);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_escape_x86(url, length);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_escape_x64(url, length);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix ? curl_escape_unix(url, length) : curl_escape_win(url, length);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_unescape", CallingConvention = CallingConvention.Cdecl,
-            CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_unescape_linux(string url, int length);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_unescape", CallingConvention = CallingConvention.Cdecl,
+             CharSet = CharSet.Ansi)]
+        private static extern IntPtr curl_unescape_unix(string url, int length);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_unescape", CallingConvention = CallingConvention.Cdecl,
-            CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_unescape_x64(string url, int length);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_unescape", CallingConvention = CallingConvention.Cdecl,
+             CharSet = CharSet.Ansi)]
+        private static extern IntPtr curl_unescape_win(string url, int length);
 
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_unescape", CallingConvention = CallingConvention.Cdecl,
-            CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_unescape_x86(string url, int length);
 
         internal static IntPtr curl_unescape(string url, int length)
         {
-            IntPtr result;
             InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_unescape_linux(url, length);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_unescape_x86(url, length);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_unescape_x64(url, length);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_unescape_unix(url, length)
+                : curl_unescape_win(url, length);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_free", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_free_linux(IntPtr p);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_free", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_free_unix(IntPtr p);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_free", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_free_x64(IntPtr p);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_free", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_free_x86(IntPtr p);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_free", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_free_win(IntPtr p);
 
         internal static void curl_free(IntPtr p)
         {
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    curl_free_linux(p);
-                    break;
-                case NETPlatformType.WinX86:
-                    curl_free_x86(p);
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_free_x64(p);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
+            if (PlatformType == NETPlatformType.Unix)
+                curl_free_unix(p);
+            else
+                curl_free_win(p);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_version", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_version_linux();
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_version", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_version_unix();
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_version", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_version_x64();
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_version", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_version_win();
 
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_version", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_version_x86();
 
         internal static IntPtr curl_version()
         {
-            IntPtr result;
             InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_version_linux();
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_version_x86();
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_version_x64();
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix ? curl_version_unix() : curl_version_win();
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_init_linux();
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_init", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_easy_init_unix();
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_init_x64();
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_init_x86();
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_init", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_easy_init_win();
 
         internal static IntPtr curl_easy_init()
         {
-            IntPtr result;
             InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_easy_init_linux();
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_init_x86();
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_init_x64();
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix ? curl_easy_init_unix() : curl_easy_init_win();
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_easy_cleanup_linux(IntPtr pCurl);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_cleanup", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_easy_cleanup_unix(IntPtr pCurl);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_easy_cleanup_x64(IntPtr pCurl);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_easy_cleanup_x86(IntPtr pCurl);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_cleanup", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_easy_cleanup_win(IntPtr pCurl);
 
         internal static void curl_easy_cleanup(IntPtr pCurl)
         {
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    curl_easy_cleanup_linux(pCurl);
-                    break;
-                case NETPlatformType.WinX86:
-                    curl_easy_cleanup_x86(pCurl);
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_easy_cleanup_x64(pCurl);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
+            if (PlatformType == NETPlatformType.Unix)
+                curl_easy_cleanup_unix(pCurl);
+            else
+                curl_easy_cleanup_win(pCurl);
         }
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -403,177 +274,90 @@ namespace CurlSharp
         internal delegate CurlIoError _CurlIoctlCallback(CurlIoCommand cmd, IntPtr parm);
 
         // curl_easy_setopt() overloads
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_linux(IntPtr pCurl, CurlOption opt, IntPtr parm);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_unix(IntPtr pCurl, CurlOption opt, IntPtr parm);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_x64(IntPtr pCurl, CurlOption opt, IntPtr parm);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_x86(IntPtr pCurl, CurlOption opt, IntPtr parm);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_win(IntPtr pCurl, CurlOption opt, IntPtr parm);
 
         internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, IntPtr parm)
         {
-            CurlCode result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_easy_setopt_linux(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_setopt_x86(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_setopt_x64(pCurl, opt, parm);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_easy_setopt_unix(pCurl, opt, parm)
+                : curl_easy_setopt_win(pCurl, opt, parm);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_linux(IntPtr pCurl, CurlOption opt, string parm);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_unix(IntPtr pCurl, CurlOption opt, string parm);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_x64(IntPtr pCurl, CurlOption opt, string parm);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_x86(IntPtr pCurl, CurlOption opt, string parm);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_win(IntPtr pCurl, CurlOption opt, string parm);
 
         internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, string parm)
         {
-            CurlCode result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_easy_setopt_linux(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_setopt_x86(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_setopt_x64(pCurl, opt, parm);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_easy_setopt_unix(pCurl, opt, parm)
+                : curl_easy_setopt_win(pCurl, opt, parm);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_linux(IntPtr pCurl, CurlOption opt, byte[] parm);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_unix(IntPtr pCurl, CurlOption opt, byte[] parm);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_x64(IntPtr pCurl, CurlOption opt, byte[] parm);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_x86(IntPtr pCurl, CurlOption opt, byte[] parm);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_win(IntPtr pCurl, CurlOption opt, byte[] parm);
 
         internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, byte[] parm)
         {
-            CurlCode result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_easy_setopt_linux(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_setopt_x86(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_setopt_x64(pCurl, opt, parm);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_easy_setopt_unix(pCurl, opt, parm)
+                : curl_easy_setopt_win(pCurl, opt, parm);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_linux(IntPtr pCurl, CurlOption opt, long parm);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_unix(IntPtr pCurl, CurlOption opt, long parm);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_x64(IntPtr pCurl, CurlOption opt, long parm);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_win(IntPtr pCurl, CurlOption opt, long parm);
 
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_x86(IntPtr pCurl, CurlOption opt, long parm);
 
         internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, long parm)
         {
-            CurlCode result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_easy_setopt_linux(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_setopt_x86(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_setopt_x64(pCurl, opt, parm);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_easy_setopt_unix(pCurl, opt, parm)
+                : curl_easy_setopt_win(pCurl, opt, parm);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_linux(IntPtr pCurl, CurlOption opt, bool parm);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_unix(IntPtr pCurl, CurlOption opt, bool parm);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_x64(IntPtr pCurl, CurlOption opt, bool parm);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_x86(IntPtr pCurl, CurlOption opt, bool parm);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_win(IntPtr pCurl, CurlOption opt, bool parm);
 
         internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, bool parm)
         {
-            CurlCode result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_easy_setopt_linux(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_setopt_x86(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_setopt_x64(pCurl, opt, parm);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_easy_setopt_unix(pCurl, opt, parm)
+                : curl_easy_setopt_win(pCurl, opt, parm);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_linux(
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_cb_unix(
             IntPtr pCurl,
             CurlOption opt,
             _CurlGenericCallback parm);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_x64(IntPtr pCurl, CurlOption opt, _CurlGenericCallback parm);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_x86(IntPtr pCurl, CurlOption opt, _CurlGenericCallback parm);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_cb_win(IntPtr pCurl, CurlOption opt, _CurlGenericCallback parm);
 
         internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlGenericCallback parm)
         {
@@ -582,33 +366,25 @@ namespace CurlSharp
 
             switch (PlatformType)
             {
-                case NETPlatformType.Mono:
-                    result = curl_easy_setopt_cb_linux(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_setopt_cb_x86(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_setopt_cb_x64(pCurl, opt, parm);
+                case NETPlatformType.Unix:
+                    result = curl_easy_setopt_cb_unix(pCurl, opt, parm);
                     break;
                 default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
+                    result = curl_easy_setopt_cb_win(pCurl, opt, parm);
+                    break;
             }
 
             return result;
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_linux(
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_cb_unix(
             IntPtr pCurl,
             CurlOption opt,
             _CurlProgressCallback parm);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_x64(IntPtr pCurl, CurlOption opt, _CurlProgressCallback parm);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_x86(IntPtr pCurl, CurlOption opt, _CurlProgressCallback parm);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_cb_win(IntPtr pCurl, CurlOption opt, _CurlProgressCallback parm);
 
         internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlProgressCallback parm)
         {
@@ -617,30 +393,23 @@ namespace CurlSharp
 
             switch (PlatformType)
             {
-                case NETPlatformType.Mono:
-                    result = curl_easy_setopt_cb_linux(pCurl, opt, parm);
+                case NETPlatformType.Unix:
+                    result = curl_easy_setopt_cb_unix(pCurl, opt, parm);
                     break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_setopt_cb_x86(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_setopt_cb_x64(pCurl, opt, parm);
-                    break;
+
                 default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
+                    result = curl_easy_setopt_cb_win(pCurl, opt, parm);
+                    break;
             }
 
             return result;
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_linux(IntPtr pCurl, CurlOption opt, _CurlDebugCallback parm);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_cb_unix(IntPtr pCurl, CurlOption opt, _CurlDebugCallback parm);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_x64(IntPtr pCurl, CurlOption opt, _CurlDebugCallback parm);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_x86(IntPtr pCurl, CurlOption opt, _CurlDebugCallback parm);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_cb_win(IntPtr pCurl, CurlOption opt, _CurlDebugCallback parm);
 
         internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlDebugCallback parm)
         {
@@ -649,30 +418,22 @@ namespace CurlSharp
 
             switch (PlatformType)
             {
-                case NETPlatformType.Mono:
-                    result = curl_easy_setopt_cb_linux(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_setopt_cb_x86(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_setopt_cb_x64(pCurl, opt, parm);
+                case NETPlatformType.Unix:
+                    result = curl_easy_setopt_cb_unix(pCurl, opt, parm);
                     break;
                 default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
+                    result = curl_easy_setopt_cb_win(pCurl, opt, parm);
+                    break;
             }
 
             return result;
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_linux(IntPtr pCurl, CurlOption opt, _CurlSslCtxCallback parm);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_cb_unix(IntPtr pCurl, CurlOption opt, _CurlSslCtxCallback parm);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_x64(IntPtr pCurl, CurlOption opt, _CurlSslCtxCallback parm);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_x86(IntPtr pCurl, CurlOption opt, _CurlSslCtxCallback parm);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_cb_win(IntPtr pCurl, CurlOption opt, _CurlSslCtxCallback parm);
 
         internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlSslCtxCallback parm)
         {
@@ -681,30 +442,22 @@ namespace CurlSharp
 
             switch (PlatformType)
             {
-                case NETPlatformType.Mono:
-                    result = curl_easy_setopt_cb_linux(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_setopt_cb_x86(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_setopt_cb_x64(pCurl, opt, parm);
+                case NETPlatformType.Unix:
+                    result = curl_easy_setopt_cb_unix(pCurl, opt, parm);
                     break;
                 default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
+                    result = curl_easy_setopt_cb_win(pCurl, opt, parm);
+                    break;
             }
 
             return result;
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_linux(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_cb_unix(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_x64(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_x86(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_setopt_cb_win(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm);
 
         internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm)
         {
@@ -713,84 +466,63 @@ namespace CurlSharp
 
             switch (PlatformType)
             {
-                case NETPlatformType.Mono:
-                    result = curl_easy_setopt_cb_linux(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_setopt_cb_x86(pCurl, opt, parm);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_setopt_cb_x64(pCurl, opt, parm);
+                case NETPlatformType.Unix:
+                    result = curl_easy_setopt_cb_unix(pCurl, opt, parm);
                     break;
                 default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
+                    result = curl_easy_setopt_cb_win(pCurl, opt, parm);
+                    break;
             }
 
             return result;
         }
 
 #if !USE_LIBCURLSHIM
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_multi_fdset", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_fdset_linux(IntPtr pmulti,
-                                                              [In, Out] ref fd_set read_fd_set,
-                                                              [In, Out] ref fd_set write_fd_set,
-                                                              [In, Out] ref fd_set exc_fd_set,
-                                                              [In, Out] ref int max_fd);
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_multi_fdset", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_fdset_x64(IntPtr pmulti,
-                                                              [In, Out] ref fd_set read_fd_set,
-                                                              [In, Out] ref fd_set write_fd_set,
-                                                              [In, Out] ref fd_set exc_fd_set,
-                                                              [In, Out] ref int max_fd);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_fdset", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlMultiCode curl_multi_fdset_unix(IntPtr pmulti,
+            [In, Out] ref fd_set read_fd_set,
+            [In, Out] ref fd_set write_fd_set,
+            [In, Out] ref fd_set exc_fd_set,
+            [In, Out] ref int max_fd);
 
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_multi_fdset", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_fdset_x86(IntPtr pmulti,
-                                                              [In, Out] ref fd_set read_fd_set,
-                                                              [In, Out] ref fd_set write_fd_set,
-                                                              [In, Out] ref fd_set exc_fd_set,
-                                                              [In, Out] ref int max_fd);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_fdset", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlMultiCode curl_multi_fdset_win(IntPtr pmulti,
+            [In, Out] ref fd_set read_fd_set,
+            [In, Out] ref fd_set write_fd_set,
+            [In, Out] ref fd_set exc_fd_set,
+            [In, Out] ref int max_fd);
 
         internal static CurlMultiCode curl_multi_fdset(IntPtr pmulti,
-                                                              [In, Out] ref fd_set read_fd_set,
-                                                              [In, Out] ref fd_set write_fd_set,
-                                                              [In, Out] ref fd_set exc_fd_set,
-                                                              [In, Out] ref int max_fd)
+            [In, Out] ref fd_set read_fd_set,
+            [In, Out] ref fd_set write_fd_set,
+            [In, Out] ref fd_set exc_fd_set,
+            [In, Out] ref int max_fd)
         {
             CurlMultiCode result;
-            if (PlatformType == NETPlatformType.Unknown)
-            {
-                PlatformType = ProcessPlatformType();
-            }
+            InitPlatformType();
 
 
             switch (PlatformType)
             {
-                case NETPlatformType.Mono:
-                    result = curl_multi_fdset_linux(pmulti, ref read_fd_set, 
-                        ref write_fd_set, ref exc_fd_set, ref  max_fd);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_multi_fdset_x86(pmulti, ref read_fd_set,
-                        ref write_fd_set, ref exc_fd_set, ref  max_fd);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_multi_fdset_x64(pmulti, ref read_fd_set,
-                        ref write_fd_set, ref exc_fd_set, ref  max_fd);
+                case NETPlatformType.Unix:
+                    result = curl_multi_fdset_unix(pmulti, ref read_fd_set,
+                        ref write_fd_set, ref exc_fd_set, ref max_fd);
                     break;
                 default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-
+                    result = curl_multi_fdset_win(pmulti, ref read_fd_set,
+                        ref write_fd_set, ref exc_fd_set, ref max_fd);
+                    break;
             }
             return result;
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        internal struct fd_set
+        internal unsafe struct fd_set
         {
             internal uint fd_count;
 
             // [MarshalAs(UnmanagedType.ByValArray, SizeConst = FD_SETSIZE)] internal IntPtr[] fd_array;
-            internal fixed uint fd_array[FD_SETSIZE];
+            internal fixed uint fd_array [FD_SETSIZE];
 
             internal const int FD_SETSIZE = 64;
 
@@ -802,28 +534,25 @@ namespace CurlSharp
             internal static fd_set Create()
             {
                 return new fd_set
-                       {
-                           // fd_array = new IntPtr[FD_SETSIZE],
-                           fd_count = 0
-                       };
+                {
+                    // fd_array = new IntPtr[FD_SETSIZE],
+                    fd_count = 0
+                };
             }
 
             internal static fd_set Create(IntPtr socket)
             {
                 var handle = Create();
                 handle.fd_count = 1;
-                handle.fd_array[0] = (uint)socket;
+                handle.fd_array[0] = (uint) socket;
                 return handle;
             }
         }
 
-        internal static void FD_ZERO(fd_set fds)
+        internal static unsafe void FD_ZERO(fd_set fds)
         {
             for (var i = 0; i < fd_set.FD_SETSIZE; i++)
-            {
-                // fds.fd_array[i] = (IntPtr) 0;
                 fds.fd_array[i] = 0;
-            }
             fds.fd_count = 0;
         }
 
@@ -843,15 +572,15 @@ namespace CurlSharp
             internal static timeval Create(int milliseconds)
             {
                 return new timeval
-                       {
-                           tv_sec = milliseconds / 1000,
-                           tv_usec = (milliseconds % 1000) * 1000
-                       };
+                {
+                    tv_sec = milliseconds/1000,
+                    tv_usec = milliseconds%1000*1000
+                };
             }
-        };
+        }
 
-        [DllImport(WINSOCK_LIB_LINUX, EntryPoint = "select")]
-        private static extern int select_linux(
+        [DllImport(LIBC_LINUX, EntryPoint = "select")]
+        private static extern int select_unix(
             int nfds, // number of sockets, (ignored in winsock)
             [In, Out] ref fd_set readfds, // read sockets to watch
             [In, Out] ref fd_set writefds, // write sockets to watch
@@ -859,9 +588,8 @@ namespace CurlSharp
             ref timeval timeout);
 
 
-
-        [DllImport(WINSOCK_LIB_X86, EntryPoint = "select")]
-        private static extern int select_x86(
+        [DllImport(WINSOCK_LIB, EntryPoint = "select")]
+        private static extern int select_win(
             int nfds, // number of sockets, (ignored in winsock)
             [In, Out] ref fd_set readfds, // read sockets to watch
             [In, Out] ref fd_set writefds, // write sockets to watch
@@ -877,184 +605,96 @@ namespace CurlSharp
             ref timeval timeout)
         {
             int result;
-            if (PlatformType == NETPlatformType.Unknown)
-            {
-                PlatformType = ProcessPlatformType();
-            }
-
+            InitPlatformType();
 
             switch (PlatformType)
             {
-                case NETPlatformType.Mono:
-                    result = select_linux(
-                                            nfds, // number of sockets, (ignored in winsock)
-                                            ref readfds, // read sockets to watch
-                                            ref writefds, // write sockets to watch
-                                            ref exceptfds, // error sockets to watch
-                                            ref timeout);
+                case NETPlatformType.Unix:
+                    result = select_unix(
+                        nfds, // number of sockets, (ignored in winsock)
+                        ref readfds, // read sockets to watch
+                        ref writefds, // write sockets to watch
+                        ref exceptfds, // error sockets to watch
+                        ref timeout);
                     break;
-                case NETPlatformType.WinX86:
-                    result = select_x86(
-                                        nfds, // number of sockets, (ignored in winsock)
-                                        ref readfds, // read sockets to watch
-                                        ref writefds, // write sockets to watch
-                                        ref exceptfds, // error sockets to watch
-                                        ref timeout);
-                  break;
-               
-               /* case NETPlatformType.WinX64:
-                    result = curl_multi_fdset_x64(pmulti, ref read_fd_set,
-                        ref write_fd_set, ref exc_fd_set, ref  max_fd);
-                    break;
-                */
                 default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-
+                    result = select_win(
+                        nfds, // number of sockets, (ignored in winsock)
+                        ref readfds, // read sockets to watch
+                        ref writefds, // write sockets to watch
+                        ref exceptfds, // error sockets to watch
+                        ref timeout);
+                    break;
             }
             return result;
         }
-        
+
 
         // [DllImport(WINSOCK_LIB, EntryPoint = "select")]
         // internal static int select(int ndfs, fd_set* readfds, fd_set* writefds, fd_set* exceptfds, timeval* timeout);
 #endif
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_perform", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_perform_linux(IntPtr pCurl);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_perform", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_perform_unix(IntPtr pCurl);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_perform", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_perform_x64(IntPtr pCurl);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_perform", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_perform_x86(IntPtr pCurl);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_perform", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_perform_win(IntPtr pCurl);
 
         internal static CurlCode curl_easy_perform(IntPtr pCurl)
         {
-            CurlCode result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_easy_perform_linux(pCurl);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_perform_x86(pCurl);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_perform_x64(pCurl);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix ? curl_easy_perform_unix(pCurl) : curl_easy_perform_win(pCurl);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_duphandle", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_duphandle_linux(IntPtr pCurl);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_duphandle", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_easy_duphandle_unix(IntPtr pCurl);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_duphandle", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_duphandle_x64(IntPtr pCurl);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_duphandle", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_duphandle_x86(IntPtr pCurl);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_duphandle", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_easy_duphandle_win(IntPtr pCurl);
 
         internal static IntPtr curl_easy_duphandle(IntPtr pCurl)
         {
-            IntPtr result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_easy_duphandle_linux(pCurl);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_duphandle_x86(pCurl);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_duphandle_x64(pCurl);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_easy_duphandle_unix(pCurl)
+                : curl_easy_duphandle_win(pCurl);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_strerror_linux(CurlCode err);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_strerror", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_easy_strerror_unix(CurlCode err);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_strerror_x64(CurlCode err);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_strerror_x86(CurlCode err);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_strerror", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_easy_strerror_win(CurlCode err);
 
         internal static IntPtr curl_easy_strerror(CurlCode err)
         {
-            IntPtr result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_easy_strerror_linux(err);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_strerror_x86(err);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_strerror_x64(err);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix ? curl_easy_strerror_unix(err) : curl_easy_strerror_win(err);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_getinfo_linux(IntPtr pCurl, CurlInfo info, ref IntPtr pInfo);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_getinfo_unix(IntPtr pCurl, CurlInfo info, ref IntPtr pInfo);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_getinfo_x86(IntPtr pCurl, CurlInfo info, ref IntPtr pInfo);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_getinfo_x64(IntPtr pCurl, CurlInfo info, ref IntPtr pInfo);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_getinfo_win(IntPtr pCurl, CurlInfo info, ref IntPtr pInfo);
 
         internal static CurlCode curl_easy_getinfo(IntPtr pCurl, CurlInfo info, ref IntPtr pInfo)
         {
-            CurlCode result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_easy_getinfo_linux(pCurl, info, ref pInfo);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_getinfo_x86(pCurl, info, ref pInfo);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_getinfo_x64(pCurl, info, ref pInfo);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_easy_getinfo_unix(pCurl, info, ref pInfo)
+                : curl_easy_getinfo_win(pCurl, info, ref pInfo);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_getinfo_linux(IntPtr pCurl, CurlInfo info, ref double dblVal);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_getinfo_unix(IntPtr pCurl, CurlInfo info, ref double dblVal);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_getinfo_x64(IntPtr pCurl, CurlInfo info, ref double dblVal);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_getinfo_x86(IntPtr pCurl, CurlInfo info, ref double dblVal);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlCode curl_easy_getinfo_win(IntPtr pCurl, CurlInfo info, ref double dblVal);
 
         internal static CurlCode curl_easy_getinfo(IntPtr pCurl, CurlInfo info, ref double pInfo)
         {
@@ -1063,252 +703,161 @@ namespace CurlSharp
 
             switch (PlatformType)
             {
-                case NETPlatformType.Mono:
-                    result = curl_easy_getinfo_linux(pCurl, info, ref pInfo);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_easy_getinfo_x86(pCurl, info, ref pInfo);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_easy_getinfo_x64(pCurl, info, ref pInfo);
+                case NETPlatformType.Unix:
+                    result = curl_easy_getinfo_unix(pCurl, info, ref pInfo);
                     break;
                 default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
+                    result = curl_easy_getinfo_win(pCurl, info, ref pInfo);
+                    break;
             }
 
             return result;
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_easy_reset", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_easy_reset_linux(IntPtr pCurl);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_reset", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_easy_reset_unix(IntPtr pCurl);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_easy_reset", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_easy_reset_x64(IntPtr pCurl);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_easy_reset", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_easy_reset_x86(IntPtr pCurl);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_reset", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_easy_reset_win(IntPtr pCurl);
 
         internal static void curl_easy_reset(IntPtr pCurl)
         {
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    curl_easy_reset_linux(pCurl);
-                    break;
-                case NETPlatformType.WinX86:
-                    curl_easy_reset_x86(pCurl);
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_easy_reset_x64(pCurl);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
+            if (PlatformType == NETPlatformType.Unix)
+                curl_easy_reset_unix(pCurl);
+            else
+                curl_easy_reset_win(pCurl);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_multi_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_multi_init_linux();
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_init", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_multi_init_unix();
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_multi_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_multi_init_x64();
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_multi_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_multi_init_x86();
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_init", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_multi_init_win();
 
         internal static IntPtr curl_multi_init()
         {
-            IntPtr result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_multi_init_linux();
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_multi_init_x86();
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_multi_init_x64();
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix ? curl_multi_init_unix() : curl_multi_init_win();
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_multi_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_cleanup_linux(IntPtr pmulti);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_cleanup", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlMultiCode curl_multi_cleanup_unix(IntPtr pmulti);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_multi_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_cleanup_x86(IntPtr pmulti);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_multi_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_cleanup_x64(IntPtr pmulti);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_cleanup", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlMultiCode curl_multi_cleanup_win(IntPtr pmulti);
 
         internal static CurlMultiCode curl_multi_cleanup(IntPtr pmulti)
         {
-            CurlMultiCode result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_multi_cleanup_linux(pmulti);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_multi_cleanup_x86(pmulti);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_multi_cleanup_x64(pmulti);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_multi_cleanup_unix(pmulti)
+                : curl_multi_cleanup_win(pmulti);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_multi_add_handle", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_add_handle_linux(IntPtr pmulti, IntPtr peasy);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_add_handle", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlMultiCode curl_multi_add_handle_unix(IntPtr pmulti, IntPtr peasy);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_multi_add_handle", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_add_handle_x64(IntPtr pmulti, IntPtr peasy);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_multi_add_handle", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_add_handle_x86(IntPtr pmulti, IntPtr peasy);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_add_handle", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlMultiCode curl_multi_add_handle_win(IntPtr pmulti, IntPtr peasy);
 
         internal static CurlMultiCode curl_multi_add_handle(IntPtr pmulti, IntPtr peasy)
         {
-            CurlMultiCode result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_multi_add_handle_linux(pmulti, peasy);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_multi_add_handle_x86(pmulti, peasy);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_multi_add_handle_x64(pmulti, peasy);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_multi_add_handle_unix(pmulti, peasy)
+                : curl_multi_add_handle_win(pmulti, peasy);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_multi_remove_handle", CallingConvention = CallingConvention.Cdecl)
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_remove_handle", CallingConvention = CallingConvention.Cdecl)
         ]
-        private static extern CurlMultiCode curl_multi_remove_handle_linux(IntPtr pmulti, IntPtr peasy);
+        private static extern CurlMultiCode curl_multi_remove_handle_unix(IntPtr pmulti, IntPtr peasy);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_multi_remove_handle", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_remove_handle_x64(IntPtr pmulti, IntPtr peasy);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_multi_remove_handle", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_remove_handle_x86(IntPtr pmulti, IntPtr peasy);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_remove_handle", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlMultiCode curl_multi_remove_handle_win(IntPtr pmulti, IntPtr peasy);
 
         internal static CurlMultiCode curl_multi_remove_handle(IntPtr pmulti, IntPtr peasy)
         {
-            CurlMultiCode result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_multi_remove_handle_linux(pmulti, peasy);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_multi_remove_handle_x86(pmulti, peasy);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_multi_remove_handle_x64(pmulti, peasy);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_multi_remove_handle_unix(pmulti, peasy)
+                : curl_multi_remove_handle_win(pmulti, peasy);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_multi_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_multi_strerror_linux(CurlMultiCode errorNum);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_setopt", CallingConvention = CallingConvention.Cdecl)
+        ]
+        private static extern CurlMultiCode curl_multi_setopt_unix(IntPtr pmulti, CurlMultiOption opt, bool parm);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_multi_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_multi_strerror_x86(CurlMultiCode errorNum);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlMultiCode curl_multi_setopt_win(IntPtr pmulti, CurlMultiOption opt, bool parm);
 
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_multi_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_multi_strerror_x64(CurlMultiCode errorNum);
+        internal static CurlMultiCode curl_multi_setopt(IntPtr pmulti, CurlMultiOption opt, bool parm)
+        {
+            InitPlatformType();
+
+            return PlatformType == NETPlatformType.Unix
+                ? curl_multi_setopt_unix(pmulti, opt, parm)
+                : curl_multi_setopt_win(pmulti, opt, parm);
+        }
+
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_setopt", CallingConvention = CallingConvention.Cdecl)
+        ]
+        private static extern CurlMultiCode curl_multi_setopt_unix(IntPtr pmulti, CurlMultiOption opt, long parm);
+
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlMultiCode curl_multi_setopt_win(IntPtr pmulti, CurlMultiOption opt, long parm);
+
+        internal static CurlMultiCode curl_multi_setopt(IntPtr pmulti, CurlMultiOption opt, long parm)
+        {
+            InitPlatformType();
+
+            return PlatformType == NETPlatformType.Unix
+                ? curl_multi_setopt_unix(pmulti, opt, parm)
+                : curl_multi_setopt_win(pmulti, opt, parm);
+        }
+
+
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_strerror", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_multi_strerror_unix(CurlMultiCode errorNum);
+
+
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_strerror", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_multi_strerror_win(CurlMultiCode errorNum);
 
         internal static IntPtr curl_multi_strerror(CurlMultiCode errorNum)
         {
-            IntPtr result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_multi_strerror_linux(errorNum);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_multi_strerror_x86(errorNum);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_multi_strerror_x64(errorNum);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_multi_strerror_unix(errorNum)
+                : curl_multi_strerror_win(errorNum);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_multi_perform", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_perform_linux(IntPtr pmulti, ref int runningHandles);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_perform", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlMultiCode curl_multi_perform_unix(IntPtr pmulti, ref int runningHandles);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_multi_perform", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_perform_x86(IntPtr pmulti, ref int runningHandles);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_multi_perform", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_perform_x64(IntPtr pmulti, ref int runningHandles);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_perform", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlMultiCode curl_multi_perform_win(IntPtr pmulti, ref int runningHandles);
 
         internal static CurlMultiCode curl_multi_perform(IntPtr pmulti, ref int runningHandles)
         {
-            CurlMultiCode result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_multi_perform_linux(pmulti, ref runningHandles);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_multi_perform_x86(pmulti, ref runningHandles);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_multi_perform_x64(pmulti, ref runningHandles);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_multi_perform_unix(pmulti, ref runningHandles)
+                : curl_multi_perform_win(pmulti, ref runningHandles);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_formfree", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_formfree_linux(IntPtr pForm);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_formfree", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_formfree_unix(IntPtr pForm);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_formfree", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_formfree_x86(IntPtr pForm);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_formfree", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_formfree_x64(IntPtr pForm);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_formfree", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_formfree_win(IntPtr pForm);
 
         internal static void curl_formfree(IntPtr pForm)
         {
@@ -1316,504 +865,234 @@ namespace CurlSharp
 
             switch (PlatformType)
             {
-                case NETPlatformType.Mono:
-                    curl_formfree_linux(pForm);
-                    break;
-                case NETPlatformType.WinX86:
-                    curl_formfree_x86(pForm);
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_formfree_x64(pForm);
+                case NETPlatformType.Unix:
+                    curl_formfree_unix(pForm);
                     break;
                 default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
+                    curl_formfree_win(pForm);
+                    break;
             }
         }
 
 #if !USE_LIBCURLSHIM
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_formadd", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_formadd_linux(ref IntPtr pHttppost, ref IntPtr pLastPost,
-                                                int codeFirst, IntPtr bufFirst,
-                                                int codeNext, IntPtr bufNext,
-                                                int codeLast);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_formadd", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int curl_formadd_unix(ref IntPtr pHttppost, ref IntPtr pLastPost,
+            int codeFirst, IntPtr bufFirst,
+            int codeNext, IntPtr bufNext,
+            int codeLast);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_formadd", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_formadd_x64(ref IntPtr pHttppost, ref IntPtr pLastPost,
-                                                int codeFirst, IntPtr bufFirst,
-                                                int codeNext, IntPtr bufNext,
-                                                int codeLast);
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_formadd", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_formadd_x86(ref IntPtr pHttppost, ref IntPtr pLastPost,
-                                                int codeFirst, IntPtr bufFirst,
-                                                int codeNext, IntPtr bufNext,
-                                                int codeLast);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_formadd", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int curl_formadd_win(ref IntPtr pHttppost, ref IntPtr pLastPost,
+            int codeFirst, IntPtr bufFirst,
+            int codeNext, IntPtr bufNext,
+            int codeLast);
+
         internal static int curl_formadd(ref IntPtr pHttppost, ref IntPtr pLastPost,
-                                                int codeFirst, IntPtr bufFirst,
-                                                int codeNext, IntPtr bufNext,
-                                                int codeLast)
+            int codeFirst, IntPtr bufFirst,
+            int codeNext, IntPtr bufNext,
+            int codeLast)
         {
-            int result;
-            if (PlatformType == NETPlatformType.Unknown)
-            {
-                PlatformType = ProcessPlatformType();
-            }
+            InitPlatformType();
 
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_formadd_linux(ref  pHttppost, ref  pLastPost,
-                                                codeFirst,  bufFirst,
-                                                 codeNext,  bufNext,
-                                                codeLast);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_formadd_x86(ref  pHttppost, ref  pLastPost,
-                                                codeFirst,  bufFirst,
-                                                 codeNext,  bufNext,
-                                                codeLast);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_formadd_x64(ref  pHttppost, ref  pLastPost,
-                                   codeFirst, bufFirst,
-                                    codeNext, bufNext,
-                                   codeLast);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-
-            }
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_formadd_unix(ref pHttppost, ref pLastPost,
+                    codeFirst, bufFirst,
+                    codeNext, bufNext,
+                    codeLast)
+                : curl_formadd_win(ref pHttppost, ref pLastPost,
+                    codeFirst, bufFirst,
+                    codeNext, bufNext,
+                    codeLast);
         }
 
 #endif
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_share_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_share_init_linux();
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_share_init", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_share_init_unix();
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_share_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_share_init_x64();
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_share_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_share_init_x86();
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_share_init", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_share_init_win();
 
         internal static IntPtr curl_share_init()
         {
-            IntPtr result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_share_init_linux();
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_share_init_x86();
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_share_init_x64();
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix ? curl_share_init_unix() : curl_share_init_win();
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_share_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_share_cleanup_linux(IntPtr pShare);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_share_cleanup", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlShareCode curl_share_cleanup_unix(IntPtr pShare);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_share_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_share_cleanup_x64(IntPtr pShare);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_share_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_share_cleanup_x86(IntPtr pShare);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_share_cleanup", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlShareCode curl_share_cleanup_win(IntPtr pShare);
 
         internal static CurlShareCode curl_share_cleanup(IntPtr pShare)
         {
-            CurlShareCode result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_share_cleanup_linux(pShare);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_share_cleanup_x86(pShare);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_share_cleanup_x64(pShare);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_share_cleanup_unix(pShare)
+                : curl_share_cleanup_win(pShare);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_share_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_share_strerror_linux(CurlShareCode errorCode);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_share_strerror", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_share_strerror_unix(CurlShareCode errorCode);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_share_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_share_strerror_x86(CurlShareCode errorCode);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_share_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_share_strerror_x64(CurlShareCode errorCode);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_share_strerror", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_share_strerror_win(CurlShareCode errorCode);
 
         internal static IntPtr curl_share_strerror(CurlShareCode errorCode)
         {
-            IntPtr result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_share_strerror_linux(errorCode);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_share_strerror_x86(errorCode);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_share_strerror_x64(errorCode);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_share_strerror_unix(errorCode)
+                : curl_share_strerror_win(errorCode);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_share_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_share_setopt_linux(
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_share_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlShareCode curl_share_setopt_unix(
             IntPtr pShare,
             CurlShareOption optCode,
             IntPtr option);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_share_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_share_setopt_x64(IntPtr pShare, CurlShareOption optCode, IntPtr option);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_share_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_share_setopt_x86(IntPtr pShare, CurlShareOption optCode, IntPtr option);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_share_setopt", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlShareCode curl_share_setopt_win(IntPtr pShare, CurlShareOption optCode, IntPtr option);
 
         internal static CurlShareCode curl_share_setopt(IntPtr pShare, CurlShareOption optCode, IntPtr option)
         {
-            CurlShareCode result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_share_setopt_linux(pShare, optCode, option);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_share_setopt_x86(pShare, optCode, option);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_share_setopt_x64(pShare, optCode, option);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_share_setopt_unix(pShare, optCode, option)
+                : curl_share_setopt_win(pShare, optCode, option);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_slist_append", CallingConvention = CallingConvention.Cdecl,
-            CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_slist_append_linux(IntPtr slist, string data);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_slist_append", CallingConvention = CallingConvention.Cdecl,
+             CharSet = CharSet.Ansi)]
+        private static extern IntPtr curl_slist_append_unix(IntPtr slist, string data);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_slist_append", CallingConvention = CallingConvention.Cdecl,
-            CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_slist_append_x64(IntPtr slist, string data);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_slist_append", CallingConvention = CallingConvention.Cdecl,
-            CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_slist_append_x86(IntPtr slist, string data);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_slist_append", CallingConvention = CallingConvention.Cdecl,
+             CharSet = CharSet.Ansi)]
+        private static extern IntPtr curl_slist_append_win(IntPtr slist, string data);
 
         internal static IntPtr curl_slist_append(IntPtr slist, string data)
         {
-            IntPtr result;
             InitPlatformType();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_slist_append_linux(slist, data);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_slist_append_x86(slist, data);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_slist_append_x64(slist, data);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_slist_append_unix(slist, data)
+                : curl_slist_append_win(slist, data);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_slist_free_all", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_slist_free_all_linux(IntPtr pList);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_slist_free_all", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlShareCode curl_slist_free_all_unix(IntPtr pList);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_slist_free_all", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_slist_free_all_x86(IntPtr pList);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_slist_free_all", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_slist_free_all_x64(IntPtr pList);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_slist_free_all", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlShareCode curl_slist_free_all_win(IntPtr pList);
 
         internal static CurlShareCode curl_slist_free_all(IntPtr pList)
         {
-            CurlShareCode result;
             InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_slist_free_all_linux(pList);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_slist_free_all_x86(pList);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_slist_free_all_x64(pList);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix
+                ? curl_slist_free_all_unix(pList)
+                : curl_slist_free_all_win(pList);
         }
 
-        [DllImport(CURL_LIB_LINUX, EntryPoint = "curl_version_info", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_version_info_linux(CurlVersion ver);
+        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_version_info", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_version_info_unix(CurlVersion ver);
 
-        [DllImport(CURL_LIB_X64, EntryPoint = "curl_version_info", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_version_info_x86(CurlVersion ver);
-
-        [DllImport(CURL_LIB_X86, EntryPoint = "curl_version_info", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_version_info_x64(CurlVersion ver);
+        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_version_info", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_version_info_win(CurlVersion ver);
 
         internal static IntPtr curl_version_info(CurlVersion ver)
         {
-            IntPtr result;
             InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.Mono:
-                    result = curl_version_info_linux(ver);
-                    break;
-                case NETPlatformType.WinX86:
-                    result = curl_version_info_x86(ver);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_version_info_x64(ver);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not determine type of NET platform");
-            }
-
-            return result;
+            return PlatformType == NETPlatformType.Unix ? curl_version_info_unix(ver) : curl_version_info_win(ver);
         }
 
 #if  USE_LIBCURLSHIM
 
-        // libcurlshim imports
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_initialize", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_initialize_x64();
+        private static void ShimInitPlatform()
+        {
+            InitPlatformType();
+            if ((PlatformType == NETPlatformType.Unknown) || (PlatformType == NETPlatformType.Unix))
+                throw new InvalidOperationException("Can not run on other platform than Win NET");
+        }
 
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_initialize", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_initialize_x86();
+        // libcurlshim imports
+
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_initialize", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_shim_initialize_win();
 
         internal static void curl_shim_initialize()
         {
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    curl_shim_initialize_x86();
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_shim_initialize_x64();
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
+            ShimInitPlatform();
+            curl_shim_initialize_win();
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_cleanup_x64();
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_cleanup_x86();
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_cleanup", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_shim_cleanup_win();
 
         internal static void curl_shim_cleanup()
         {
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    curl_shim_cleanup_x86();
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_shim_cleanup_x64();
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
+            ShimInitPlatform();
+            curl_shim_cleanup_win();
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_alloc_strings", CallingConvention = CallingConvention.Cdecl
-        )]
-        private static extern IntPtr curl_shim_alloc_strings_x64();
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_alloc_strings", CallingConvention = CallingConvention.Cdecl
-        )]
-        private static extern IntPtr curl_shim_alloc_strings_x86();
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_alloc_strings", CallingConvention = CallingConvention.Cdecl
+         )]
+        private static extern IntPtr curl_shim_alloc_strings_win();
 
         internal static IntPtr curl_shim_alloc_strings()
         {
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    return curl_shim_alloc_strings_x86();
-                case NETPlatformType.WinX64:
-                    return curl_shim_alloc_strings_x64();
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
+            ShimInitPlatform();
+            return curl_shim_alloc_strings_win();
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_add_string_to_slist",
-            CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_shim_add_string_to_slist_x64(IntPtr pStrings, string str);
-
-        [DllImport(CURLSHIM_LIB_X86, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_shim_add_string_to_slist_x86(IntPtr pStrings, string str);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_add_string_to_slist",
+             CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private static extern IntPtr curl_shim_add_string_to_slist_win(IntPtr pStrings, string str);
 
         internal static IntPtr curl_shim_add_string_to_slist(IntPtr pStrings, string str)
         {
-            IntPtr result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    result = curl_shim_add_string_to_slist_x86(pStrings, str);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_add_string_to_slist_x64(pStrings, str);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            ShimInitPlatform();
+            return curl_shim_add_string_to_slist_win(pStrings, str);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_get_string_from_slist",
-            CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_shim_get_string_from_slist_x64(IntPtr pSlist, ref IntPtr pStr);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_get_string_from_slist",
-            CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_shim_get_string_from_slist_x86(IntPtr pSlist, ref IntPtr pStr);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_string_from_slist",
+             CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private static extern IntPtr curl_shim_get_string_from_slist_win(IntPtr pSlist, ref IntPtr pStr);
 
         internal static IntPtr curl_shim_get_string_from_slist(IntPtr pSlist, ref IntPtr pStr)
         {
-            IntPtr result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    result = curl_shim_get_string_from_slist_x86(pSlist, ref pStr);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_get_string_from_slist_x64(pSlist, ref pStr);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            ShimInitPlatform();
+            return curl_shim_get_string_from_slist_win(pSlist, ref pStr);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_add_string", CallingConvention = CallingConvention.Cdecl,
-            CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_shim_add_string_x64(IntPtr pStrings, string str);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_add_string", CallingConvention = CallingConvention.Cdecl,
-            CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_shim_add_string_x86(IntPtr pStrings, string str);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_add_string", CallingConvention = CallingConvention.Cdecl,
+             CharSet = CharSet.Ansi)]
+        private static extern IntPtr curl_shim_add_string_win(IntPtr pStrings, string str);
 
         internal static IntPtr curl_shim_add_string(IntPtr pStrings, string str)
         {
-            IntPtr result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    result = curl_shim_add_string_x86(pStrings, str);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_add_string_x64(pStrings, str);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            ShimInitPlatform();
+            return curl_shim_add_string_win(pStrings, str);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_free_strings", CallingConvention = CallingConvention.Cdecl)
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_free_strings", CallingConvention = CallingConvention.Cdecl)
         ]
-        private static extern void curl_shim_free_strings_x64(IntPtr pStrings);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_free_strings", CallingConvention = CallingConvention.Cdecl)
-        ]
-        private static extern void curl_shim_free_strings_x86(IntPtr pStrings);
+        private static extern void curl_shim_free_strings_win(IntPtr pStrings);
 
         internal static void curl_shim_free_strings(IntPtr pStrings)
         {
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    curl_shim_free_strings_x86(pStrings);
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_shim_free_strings_x64(pStrings);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
+            ShimInitPlatform();
+            curl_shim_free_strings_win(pStrings);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_install_delegates",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_install_delegates_x64(
-            IntPtr pCurl,
-            IntPtr pThis,
-            _ShimWriteCallback pWrite,
-            _ShimReadCallback pRead,
-            _ShimProgressCallback pProgress,
-            _ShimDebugCallback pDebug,
-            _ShimHeaderCallback pHeader,
-            _ShimSslCtxCallback pCtx,
-            _ShimIoctlCallback pIoctl);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_install_delegates",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_install_delegates_x86(
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_install_delegates",
+             CallingConvention = CallingConvention.Cdecl)]
+        private static extern int curl_shim_install_delegates_win(
             IntPtr pCurl,
             IntPtr pThis,
             _ShimWriteCallback pWrite,
@@ -1835,80 +1114,33 @@ namespace CurlSharp
             _ShimSslCtxCallback pCtx,
             _ShimIoctlCallback pIoctl)
         {
-            int result;
-            InitPlatformType();
+            ShimInitPlatform();
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-
-                    result = curl_shim_install_delegates_x86(
-                        pCurl,
-                        pThis,
-                        pWrite,
-                        pRead,
-                        pProgress,
-                        pDebug,
-                        pHeader,
-                        pCtx,
-                        pIoctl);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_install_delegates_x64(
-                        pCurl,
-                        pThis,
-                        pWrite,
-                        pRead,
-                        pProgress,
-                        pDebug,
-                        pHeader,
-                        pCtx,
-                        pIoctl);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            return curl_shim_install_delegates_win(
+                pCurl,
+                pThis,
+                pWrite,
+                pRead,
+                pProgress,
+                pDebug,
+                pHeader,
+                pCtx,
+                pIoctl);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_cleanup_delegates",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_cleanup_delegates_x64(IntPtr pThis);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_cleanup_delegates",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_cleanup_delegates_x86(IntPtr pThis);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_cleanup_delegates",
+             CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_shim_cleanup_delegates_win(IntPtr pThis);
 
         internal static void curl_shim_cleanup_delegates(IntPtr pThis)
         {
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    curl_shim_cleanup_delegates_x86(pThis);
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_shim_cleanup_delegates_x64(pThis);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
+            ShimInitPlatform();
+            curl_shim_cleanup_delegates_win(pThis);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_get_file_time", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_get_file_time_x64(
-            int unixTime,
-            ref int yy,
-            ref int mm,
-            ref int dd,
-            ref int hh,
-            ref int mn,
-            ref int ss);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_get_file_time", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_get_file_time_x86(
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_file_time", CallingConvention = CallingConvention.Cdecl
+         )]
+        private static extern void curl_shim_get_file_time_win(
             int unixTime,
             ref int yy,
             ref int mm,
@@ -1926,235 +1158,90 @@ namespace CurlSharp
             ref int mn,
             ref int ss)
         {
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    curl_shim_get_file_time_x86(unixTime, ref yy, ref mm, ref dd, ref hh, ref mn, ref ss);
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_shim_get_file_time_x64(unixTime, ref yy, ref mm, ref dd, ref hh, ref mn, ref ss);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
+            ShimInitPlatform();
+            curl_shim_get_file_time_win(unixTime, ref yy, ref mm, ref dd, ref hh, ref mn, ref ss);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_get_file_time", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_free_slist_x64(IntPtr p);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_get_file_time", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_free_slist_x86(IntPtr p);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_file_time", CallingConvention = CallingConvention.Cdecl
+         )]
+        private static extern void curl_shim_free_slist_win(IntPtr p);
 
         internal static void curl_shim_free_slist(IntPtr p)
         {
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    curl_shim_free_slist_x86(p);
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_shim_free_slist_x64(p);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
+            ShimInitPlatform();
+            curl_shim_free_slist_win(p);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_alloc_fd_sets", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_shim_alloc_fd_sets_x64();
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_alloc_fd_sets", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_shim_alloc_fd_sets_x86();
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_alloc_fd_sets", CallingConvention = CallingConvention.Cdecl
+         )]
+        private static extern IntPtr curl_shim_alloc_fd_sets_win();
 
         internal static IntPtr curl_shim_alloc_fd_sets()
         {
-            IntPtr result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    result = curl_shim_alloc_fd_sets_x86();
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_alloc_fd_sets_x64();
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            ShimInitPlatform();
+            return curl_shim_alloc_fd_sets_win();
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_free_fd_sets", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_free_fd_sets_x64(IntPtr fdsets);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_free_fd_sets", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_free_fd_sets_x86(IntPtr fdsets);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_free_fd_sets", CallingConvention = CallingConvention.Cdecl)
+        ]
+        private static extern void curl_shim_free_fd_sets_win(IntPtr fdsets);
 
         internal static void curl_shim_free_fd_sets(IntPtr fdsets)
         {
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    curl_shim_free_fd_sets_x86(fdsets);
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_shim_free_fd_sets_x64(fdsets);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
+            ShimInitPlatform();
+            curl_shim_free_fd_sets_win(fdsets);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_multi_fdset", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_shim_multi_fdset_x64(IntPtr multi, IntPtr fdsets, ref int maxFD);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_multi_fdset", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_shim_multi_fdset_x86(IntPtr multi, IntPtr fdsets, ref int maxFD);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_multi_fdset", CallingConvention = CallingConvention.Cdecl)]
+        private static extern CurlMultiCode curl_shim_multi_fdset_win(IntPtr multi, IntPtr fdsets, ref int maxFD);
 
         internal static CurlMultiCode curl_shim_multi_fdset(IntPtr multi, IntPtr fdsets, ref int maxFD)
         {
-            CurlMultiCode result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    result = curl_shim_multi_fdset_x86(multi, fdsets, ref maxFD);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_multi_fdset_x64(multi, fdsets, ref maxFD);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            ShimInitPlatform();
+            return curl_shim_multi_fdset_win(multi, fdsets, ref maxFD);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_select", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_select_x64(int maxFD, IntPtr fdsets, int milliseconds);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_select", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_select_x86(int maxFD, IntPtr fdsets, int milliseconds);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_select", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int curl_shim_select_win(int maxFD, IntPtr fdsets, int milliseconds);
 
         internal static int curl_shim_select(int maxFD, IntPtr fdsets, int milliseconds)
         {
-            int result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    result = curl_shim_select_x86(maxFD, fdsets, milliseconds);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_select_x64(maxFD, fdsets, milliseconds);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            ShimInitPlatform();
+            return curl_shim_select_win(maxFD, fdsets, milliseconds);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_multi_info_read",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_shim_multi_info_read_x64(IntPtr multi, ref int nMsgs);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_multi_info_read",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_shim_multi_info_read_x86(IntPtr multi, ref int nMsgs);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_multi_info_read",
+             CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_shim_multi_info_read_win(IntPtr multi, ref int nMsgs);
 
         internal static IntPtr curl_shim_multi_info_read(IntPtr multi, ref int nMsgs)
         {
-            IntPtr result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    result = curl_shim_multi_info_read_x86(multi, ref nMsgs);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_multi_info_read_x64(multi, ref nMsgs);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            ShimInitPlatform();
+            return curl_shim_multi_info_read_win(multi, ref nMsgs);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_multi_info_free",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_multi_info_free_x64(IntPtr multiInfo);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_multi_info_free",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_multi_info_free_x86(IntPtr multiInfo);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_multi_info_free",
+             CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_shim_multi_info_free_win(IntPtr multiInfo);
 
         internal static void curl_shim_multi_info_free(IntPtr multiInfo)
         {
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    curl_shim_multi_info_free_x86(multiInfo);
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_shim_multi_info_free_x64(multiInfo);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
+            ShimInitPlatform();
+            curl_shim_multi_info_free_win(multiInfo);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_formadd", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_formadd_x64(IntPtr[] ppForms, IntPtr[] pParams, int nParams);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_formadd", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_formadd_x86(IntPtr[] ppForms, IntPtr[] pParams, int nParams);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_formadd", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int curl_shim_formadd_win(IntPtr[] ppForms, IntPtr[] pParams, int nParams);
 
         internal static int curl_shim_formadd(IntPtr[] ppForms, IntPtr[] pParams, int nParams)
         {
-            int result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    result = curl_shim_formadd_x86(ppForms, pParams, nParams);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_formadd_x64(ppForms, pParams, nParams);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            ShimInitPlatform();
+            return curl_shim_formadd_win(ppForms, pParams, nParams);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_install_share_delegates",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_install_share_delegates_x64(
-            IntPtr pShare,
-            IntPtr pThis,
-            _ShimLockCallback pLock,
-            _ShimUnlockCallback pUnlock);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_install_share_delegates",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_install_share_delegates_x86(
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_install_share_delegates",
+             CallingConvention = CallingConvention.Cdecl)]
+        private static extern int curl_shim_install_share_delegates_win(
             IntPtr pShare,
             IntPtr pThis,
             _ShimLockCallback pLock,
@@ -2166,160 +1253,58 @@ namespace CurlSharp
             _ShimLockCallback pLock,
             _ShimUnlockCallback pUnlock)
         {
-            int result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    result = curl_shim_install_share_delegates_x86(pShare, pThis, pLock, pUnlock);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_install_share_delegates_x64(pShare, pThis, pLock, pUnlock);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            ShimInitPlatform();
+            return curl_shim_install_share_delegates_win(pShare, pThis, pLock, pUnlock);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "url_shim_cleanup_share_delegates",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_cleanup_share_delegates_x64(IntPtr pShare);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "url_shim_cleanup_share_delegates",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_cleanup_share_delegates_x86(IntPtr pShare);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "url_shim_cleanup_share_delegates",
+             CallingConvention = CallingConvention.Cdecl)]
+        private static extern void curl_shim_cleanup_share_delegates_win(IntPtr pShare);
 
         internal static void curl_shim_cleanup_share_delegates(IntPtr pShare)
         {
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    curl_shim_cleanup_share_delegates_x86(pShare);
-                    break;
-                case NETPlatformType.WinX64:
-                    curl_shim_cleanup_share_delegates_x86(pShare);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
+            ShimInitPlatform();
+            curl_shim_cleanup_share_delegates_win(pShare);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_get_version_int_value",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_get_version_int_value_x64(IntPtr p, int offset);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_get_version_int_value",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_get_version_int_value_x86(IntPtr p, int offset);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_version_int_value",
+             CallingConvention = CallingConvention.Cdecl)]
+        private static extern int curl_shim_get_version_int_value_win(IntPtr p, int offset);
 
         internal static int curl_shim_get_version_int_value(IntPtr p, int offset)
         {
-            int result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    result = curl_shim_get_version_int_value_x86(p, offset);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_get_version_int_value_x64(p, offset);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            ShimInitPlatform();
+            return curl_shim_get_version_int_value_win(p, offset);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_get_version_char_ptr",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_shim_get_version_char_ptr_x64(IntPtr p, int offset);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_get_version_char_ptr",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_shim_get_version_char_ptr_x86(IntPtr p, int offset);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_version_char_ptr",
+             CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_shim_get_version_char_ptr_win(IntPtr p, int offset);
 
         internal static IntPtr curl_shim_get_version_char_ptr(IntPtr p, int offset)
         {
-            IntPtr result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    result = curl_shim_get_version_char_ptr_x86(p, offset);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_get_version_char_ptr_x64(p, offset);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            ShimInitPlatform();
+            return curl_shim_get_version_char_ptr_win(p, offset);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_get_number_of_protocols",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_get_number_of_protocols_x64(IntPtr p, int offset);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_get_number_of_protocols",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_get_number_of_protocols_x86(IntPtr p, int offset);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_number_of_protocols",
+             CallingConvention = CallingConvention.Cdecl)]
+        private static extern int curl_shim_get_number_of_protocols_win(IntPtr p, int offset);
 
         internal static int curl_shim_get_number_of_protocols(IntPtr p, int offset)
         {
-            int result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    result = curl_shim_get_number_of_protocols_x86(p, offset);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_get_number_of_protocols_x64(p, offset);
-
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            ShimInitPlatform();
+            return curl_shim_get_number_of_protocols_win(p, offset);
         }
 
-        [DllImport(CURLSHIM_LIB_X64, EntryPoint = "curl_shim_get_protocol_string",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_shim_get_protocol_string_x64(IntPtr p, int offset, int index);
-
-        [DllImport(CURLSHIM_LIB_X86, EntryPoint = "curl_shim_get_protocol_string",
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_shim_get_protocol_string_x86(IntPtr p, int offset, int index);
+        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_protocol_string",
+             CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr curl_shim_get_protocol_string_win(IntPtr p, int offset, int index);
 
         internal static IntPtr curl_shim_get_protocol_string(IntPtr p, int offset, int index)
         {
-            IntPtr result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.WinX86:
-                    result = curl_shim_get_protocol_string_x86(p, offset, index);
-                    break;
-                case NETPlatformType.WinX64:
-                    result = curl_shim_get_protocol_string_x64(p, offset, index);
-                    break;
-                default:
-                    throw new InvalidOperationException("Can not run on other platform than Win NET");
-            }
-
-            return result;
+            ShimInitPlatform();
+            return curl_shim_get_protocol_string_win(p, offset, index);
         }
 
         internal delegate void _ShimLockCallback(int data, int access, IntPtr userPtr);
