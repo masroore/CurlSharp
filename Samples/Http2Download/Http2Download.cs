@@ -37,6 +37,8 @@ namespace Http2Download
                     handles.Add(easy);
                 }
 
+                multi.Pipelining = CurlPipelining.Multiplex;
+
                 var stillRunning = 1;
                 // call CurlMulti.Perform right away (note ref qualifier)
                 multi.Perform(ref stillRunning);

@@ -40,6 +40,9 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Enums\CurlMultiOption.cs" />
+    <Compile Include="Enums\CurlOptType.cs" />
+    <Compile Include="Enums\CurlPipelining.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Curl.cs" />
     <Compile Include="CurlEasy.cs" />
