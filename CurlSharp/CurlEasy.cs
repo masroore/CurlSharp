@@ -152,6 +152,7 @@ namespace CurlSharp
         private string _sslKey;
         private string _sslKeyPasswd;
         private bool _sslVerifyPeer;
+        private bool _sslVerifyHost;
         private bool _tcpNoDelay;
         private int _timeValue;
         private int _timeout;
@@ -622,6 +623,12 @@ namespace CurlSharp
         {
             get { return _sslVerifyPeer; }
             set { setBoolOption(CurlOption.SslVerifyPeer, ref _sslVerifyPeer, value); }
+        }
+
+        public bool SslVerifyhost
+        {
+            get { return _sslVerifyHost; }
+            set { setBoolOption(CurlOption.SslVerifyhost, ref _sslVerifyHost, value); }
         }
 
         public bool FreshConnect
@@ -2145,7 +2152,7 @@ namespace CurlSharp
             if (_pfCurlDebug != null)
             {
                 var userdata = getObject(pUserData);
-                _pfCurlDebug(infoType, message, userdata);
+                _pfCurlDebug(infoType, message, size, userdata);
             }
             return 0;
         }
