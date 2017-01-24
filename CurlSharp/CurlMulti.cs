@@ -2,7 +2,7 @@
  *
  * CurlS#arp
  *
- * Copyright (c) 2014 Dr. Masroor Ehsan (masroore@gmail.com)
+ * Copyright (c) 2013-2017 Dr. Masroor Ehsan (masroore@gmail.com)
  * Portions copyright (c) 2004, 2005 Jeff Phillips (jeff@jeffp.net)
  *
  * This software is licensed as described in the file LICENSE, which you
@@ -187,10 +187,7 @@ namespace CurlSharp
         ///     string description.
         /// </param>
         /// <returns>The string description.</returns>
-        public string StrError(CurlMultiCode errorNum)
-        {
-            return Marshal.PtrToStringAnsi(NativeMethods.curl_multi_strerror(errorNum));
-        }
+        public string StrError(CurlMultiCode errorNum) => Marshal.PtrToStringAnsi(NativeMethods.curl_multi_strerror(errorNum));
 
         /// <summary>
         ///     Read/write data to/from each CurlEasy object.

@@ -2,7 +2,7 @@
  *
  * CurlS#arp
  *
- * Copyright (c) 2014-2017 Dr. Masroor Ehsan (masroore@gmail.com)
+ * Copyright (c) 2013-2017 Dr. Masroor Ehsan (masroore@gmail.com)
  * Portions copyright (c) 2004, 2005 Jeff Phillips (jeff@jeffp.net)
  * Portions copyright (c) 2017 Katelyn Gigante (https://github.com/silasary)
  *
@@ -102,6 +102,8 @@ namespace CurlSharp
             var type = NETPlatformType.Unknown;
 
             if ((Type.GetType("Mono.Runtime") != null) && (Environment.OSVersion.Platform == PlatformID.Unix))
+                type = NETPlatformType.Unix;
+            else if (Environment.OSVersion.Platform == PlatformID.MacOSX)
                 type = NETPlatformType.Unix;
             else
                 switch (IntPtr.Size)
