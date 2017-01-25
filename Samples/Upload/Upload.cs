@@ -42,6 +42,7 @@ namespace Upload
                 WriteLine(ex);
                 ReadLine();
             }
+            Console.ReadLine();
         }
 
         public static int OnReadData(byte[] buf, int size, int nmemb, object extraData)

@@ -65,6 +65,7 @@ namespace FileUpload
                 WriteLine(ex);
                 ReadLine();
             }
+            Console.ReadLine();
         }
 
         public static void OnDebug(CurlInfoType infoType, string msg, int size, object extraData)

@@ -104,6 +104,7 @@ namespace InfoDemo
                 Console.WriteLine(ex);
                 Console.ReadLine();
             }
+            Console.ReadLine();
         }
     }
 }

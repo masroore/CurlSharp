@@ -71,6 +71,7 @@ namespace SmtpMail
                 Console.WriteLine(ex);
                 Console.ReadLine();
             }
+            Console.ReadLine();
         }
 
         private static byte[] GetBytes(string str)

@@ -60,6 +60,7 @@ namespace ShareDemo
                 Console.WriteLine(ex);
                 Console.ReadLine();
             }
+            Console.ReadLine();
         }
 
         public static void OnLock(CurlLockData data, CurlLockAccess access, Object extraData)

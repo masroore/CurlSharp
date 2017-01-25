@@ -32,6 +32,7 @@ namespace EasyGet
                 Console.WriteLine(ex);
                 Console.ReadLine();
             }
+            Console.ReadLine();
         }
 
         public static Int32 OnWriteData(Byte[] buf, Int32 size, Int32 nmemb, Object extraData)
