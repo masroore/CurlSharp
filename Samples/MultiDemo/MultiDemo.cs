@@ -79,7 +79,7 @@ namespace MultiDemo
         private static CurlEasy CreateEasy(string url, CurlWriteCallback wf)
         {
             var easy = new CurlEasy();
-            var data = (String) url.Clone();
+            var data = url;
             easy.Url = url;
             easy.WriteFunction = wf;
             easy.WriteData = data;
