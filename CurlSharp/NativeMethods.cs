@@ -61,7 +61,7 @@ namespace CurlSharp
         {
             get
             {
-                var codeBase = Assembly.GetExecutingAssembly().CodeBase;
+                var codeBase = Assembly.GetEntryAssembly().CodeBase;
                 var uri = new UriBuilder(codeBase);
                 var path = Uri.UnescapeDataString(uri.Path);
                 return Path.GetDirectoryName(path);
@@ -100,10 +100,10 @@ namespace CurlSharp
         internal static NETPlatformType GetPlatformType()
         {
             var type = NETPlatformType.Unknown;
-
-            if ((Type.GetType("Mono.Runtime") != null) && (Environment.OSVersion.Platform == PlatformID.Unix))
+            
+            if ((Type.GetType("Mono.Runtime") != null) && (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)))
                 type = NETPlatformType.Unix;
-            else if (Environment.OSVersion.Platform == PlatformID.MacOSX)
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 type = NETPlatformType.Unix;
             else
                 switch (IntPtr.Size)
