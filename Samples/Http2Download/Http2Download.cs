@@ -72,11 +72,14 @@ namespace Http2Download
                 }
             }
 
-            foreach (var w in Writers.Values) w.Close();
+            foreach (var w in Writers.Values) w.Dispose();
 
             foreach (var h in handles) h.Dispose();
 
             Curl.GlobalCleanup();
+            
+            WriteLine("\nPress <ENTER> to exit...");
+            ReadLine();
         }
 
         private static CurlEasy CreateEasy(string url)
@@ -87,7 +90,7 @@ namespace Http2Download
                 HttpVersion = CurlHttpVersion.Http2_0,
                 Url = url,
                 WriteFunction = OnWriteData,
-                WriteData = (string) url.Clone(),
+                WriteData = url,
                 Encoding = "deflate, gzip",
 
                 // set it verbose for max debuggaility
