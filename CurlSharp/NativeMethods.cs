@@ -46,6 +46,15 @@ namespace CurlSharp
 
         private const string LIB_DIR_WIN32 = "i386";
 
+        static NativeMethods()
+        {
+            PlatformType = ProcessPlatformType();
+#if USE_LIBCURLSHIM
+            if (PlatformType == NETPlatformType.Unknown || PlatformType == NETPlatformType.Unix)
+                throw new InvalidOperationException("Can not run on other platform than Win NET");
+#endif
+        }
+
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool SetDllDirectory(string lpPathName);
 
@@ -68,7 +77,7 @@ namespace CurlSharp
             }
         }
 
-        internal static NETPlatformType PlatformType { get; set; } = NETPlatformType.Unknown;
+        internal static NETPlatformType PlatformType { get; }
 
         internal static NETPlatformType ProcessPlatformType()
         {
@@ -128,15 +137,8 @@ namespace CurlSharp
         [DllImport(CURL_LIB_WIN, EntryPoint = "curl_global_init", CallingConvention = CallingConvention.Cdecl)]
         private static extern CurlCode curl_global_init_win(int flags);
 
-        private static void InitPlatformType()
-        {
-            if (PlatformType == NETPlatformType.Unknown) PlatformType = ProcessPlatformType();
-        }
-
         internal static CurlCode curl_global_init(int flags)
         {
-            InitPlatformType();
-
             switch (PlatformType)
             {
                 case NETPlatformType.Unix:
@@ -154,8 +156,6 @@ namespace CurlSharp
 
         internal static void curl_global_cleanup()
         {
-            InitPlatformType();
-
             if (PlatformType == NETPlatformType.Unix)
                 curl_global_cleanup_unix();
             else
@@ -172,7 +172,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_escape(string url, int length)
         {
-            InitPlatformType();
             return PlatformType == NETPlatformType.Unix ? curl_escape_unix(url, length) : curl_escape_win(url, length);
         }
 
@@ -187,7 +186,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_unescape(string url, int length)
         {
-            InitPlatformType();
             return PlatformType == NETPlatformType.Unix
                 ? curl_unescape_unix(url, length)
                 : curl_unescape_win(url, length);
@@ -201,8 +199,6 @@ namespace CurlSharp
 
         internal static void curl_free(IntPtr p)
         {
-            InitPlatformType();
-
             if (PlatformType == NETPlatformType.Unix)
                 curl_free_unix(p);
             else
@@ -218,7 +214,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_version()
         {
-            InitPlatformType();
             return PlatformType == NETPlatformType.Unix ? curl_version_unix() : curl_version_win();
         }
 
@@ -230,7 +225,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_easy_init()
         {
-            InitPlatformType();
             return PlatformType == NETPlatformType.Unix ? curl_easy_init_unix() : curl_easy_init_win();
         }
 
@@ -242,8 +236,6 @@ namespace CurlSharp
 
         internal static void curl_easy_cleanup(IntPtr pCurl)
         {
-            InitPlatformType();
-
             if (PlatformType == NETPlatformType.Unix)
                 curl_easy_cleanup_unix(pCurl);
             else
@@ -284,8 +276,6 @@ namespace CurlSharp
 
         internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, IntPtr parm)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_easy_setopt_unix(pCurl, opt, parm)
                 : curl_easy_setopt_win(pCurl, opt, parm);
@@ -299,8 +289,6 @@ namespace CurlSharp
 
         internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, string parm)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_easy_setopt_unix(pCurl, opt, parm)
                 : curl_easy_setopt_win(pCurl, opt, parm);
@@ -314,8 +302,6 @@ namespace CurlSharp
 
         internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, byte[] parm)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_easy_setopt_unix(pCurl, opt, parm)
                 : curl_easy_setopt_win(pCurl, opt, parm);
@@ -330,8 +316,6 @@ namespace CurlSharp
 
         internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, long parm)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_easy_setopt_unix(pCurl, opt, parm)
                 : curl_easy_setopt_win(pCurl, opt, parm);
@@ -345,8 +329,6 @@ namespace CurlSharp
 
         internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, bool parm)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_easy_setopt_unix(pCurl, opt, parm)
                 : curl_easy_setopt_win(pCurl, opt, parm);
@@ -364,8 +346,6 @@ namespace CurlSharp
         internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlGenericCallback parm)
         {
             CurlCode result;
-            InitPlatformType();
-
             switch (PlatformType)
             {
                 case NETPlatformType.Unix:
@@ -391,8 +371,6 @@ namespace CurlSharp
         internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlProgressCallback parm)
         {
             CurlCode result;
-            InitPlatformType();
-
             switch (PlatformType)
             {
                 case NETPlatformType.Unix:
@@ -416,8 +394,6 @@ namespace CurlSharp
         internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlDebugCallback parm)
         {
             CurlCode result;
-            InitPlatformType();
-
             switch (PlatformType)
             {
                 case NETPlatformType.Unix:
@@ -440,8 +416,6 @@ namespace CurlSharp
         internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlSslCtxCallback parm)
         {
             CurlCode result;
-            InitPlatformType();
-
             switch (PlatformType)
             {
                 case NETPlatformType.Unix:
@@ -464,8 +438,6 @@ namespace CurlSharp
         internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm)
         {
             CurlCode result;
-            InitPlatformType();
-
             switch (PlatformType)
             {
                 case NETPlatformType.Unix:
@@ -501,9 +473,6 @@ namespace CurlSharp
             [In, Out] ref int max_fd)
         {
             CurlMultiCode result;
-            InitPlatformType();
-
-
             switch (PlatformType)
             {
                 case NETPlatformType.Unix:
@@ -607,8 +576,6 @@ namespace CurlSharp
             ref timeval timeout)
         {
             int result;
-            InitPlatformType();
-
             switch (PlatformType)
             {
                 case NETPlatformType.Unix:
@@ -644,8 +611,6 @@ namespace CurlSharp
 
         internal static CurlCode curl_easy_perform(IntPtr pCurl)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix ? curl_easy_perform_unix(pCurl) : curl_easy_perform_win(pCurl);
         }
 
@@ -657,8 +622,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_easy_duphandle(IntPtr pCurl)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_easy_duphandle_unix(pCurl)
                 : curl_easy_duphandle_win(pCurl);
@@ -672,8 +635,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_easy_strerror(CurlCode err)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix ? curl_easy_strerror_unix(err) : curl_easy_strerror_win(err);
         }
 
@@ -685,8 +646,6 @@ namespace CurlSharp
 
         internal static CurlCode curl_easy_getinfo(IntPtr pCurl, CurlInfo info, ref IntPtr pInfo)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_easy_getinfo_unix(pCurl, info, ref pInfo)
                 : curl_easy_getinfo_win(pCurl, info, ref pInfo);
@@ -701,8 +660,6 @@ namespace CurlSharp
         internal static CurlCode curl_easy_getinfo(IntPtr pCurl, CurlInfo info, ref double pInfo)
         {
             CurlCode result;
-            InitPlatformType();
-
             switch (PlatformType)
             {
                 case NETPlatformType.Unix:
@@ -724,8 +681,6 @@ namespace CurlSharp
 
         internal static void curl_easy_reset(IntPtr pCurl)
         {
-            InitPlatformType();
-
             if (PlatformType == NETPlatformType.Unix)
                 curl_easy_reset_unix(pCurl);
             else
@@ -740,8 +695,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_multi_init()
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix ? curl_multi_init_unix() : curl_multi_init_win();
         }
 
@@ -753,8 +706,6 @@ namespace CurlSharp
 
         internal static CurlMultiCode curl_multi_cleanup(IntPtr pmulti)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_multi_cleanup_unix(pmulti)
                 : curl_multi_cleanup_win(pmulti);
@@ -768,8 +719,6 @@ namespace CurlSharp
 
         internal static CurlMultiCode curl_multi_add_handle(IntPtr pmulti, IntPtr peasy)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_multi_add_handle_unix(pmulti, peasy)
                 : curl_multi_add_handle_win(pmulti, peasy);
@@ -784,8 +733,6 @@ namespace CurlSharp
 
         internal static CurlMultiCode curl_multi_remove_handle(IntPtr pmulti, IntPtr peasy)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_multi_remove_handle_unix(pmulti, peasy)
                 : curl_multi_remove_handle_win(pmulti, peasy);
@@ -800,8 +747,6 @@ namespace CurlSharp
 
         internal static CurlMultiCode curl_multi_setopt(IntPtr pmulti, CurlMultiOption opt, bool parm)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_multi_setopt_unix(pmulti, opt, parm)
                 : curl_multi_setopt_win(pmulti, opt, parm);
@@ -816,8 +761,6 @@ namespace CurlSharp
 
         internal static CurlMultiCode curl_multi_setopt(IntPtr pmulti, CurlMultiOption opt, long parm)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_multi_setopt_unix(pmulti, opt, parm)
                 : curl_multi_setopt_win(pmulti, opt, parm);
@@ -833,8 +776,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_multi_strerror(CurlMultiCode errorNum)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_multi_strerror_unix(errorNum)
                 : curl_multi_strerror_win(errorNum);
@@ -848,8 +789,6 @@ namespace CurlSharp
 
         internal static CurlMultiCode curl_multi_perform(IntPtr pmulti, ref int runningHandles)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_multi_perform_unix(pmulti, ref runningHandles)
                 : curl_multi_perform_win(pmulti, ref runningHandles);
@@ -863,8 +802,6 @@ namespace CurlSharp
 
         internal static void curl_formfree(IntPtr pForm)
         {
-            InitPlatformType();
-
             switch (PlatformType)
             {
                 case NETPlatformType.Unix:
@@ -894,8 +831,6 @@ namespace CurlSharp
             int codeNext, IntPtr bufNext,
             int codeLast)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_formadd_unix(ref pHttppost, ref pLastPost,
                     codeFirst, bufFirst,
@@ -917,8 +852,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_share_init()
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix ? curl_share_init_unix() : curl_share_init_win();
         }
 
@@ -930,8 +863,6 @@ namespace CurlSharp
 
         internal static CurlShareCode curl_share_cleanup(IntPtr pShare)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_share_cleanup_unix(pShare)
                 : curl_share_cleanup_win(pShare);
@@ -945,8 +876,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_share_strerror(CurlShareCode errorCode)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_share_strerror_unix(errorCode)
                 : curl_share_strerror_win(errorCode);
@@ -963,8 +892,6 @@ namespace CurlSharp
 
         internal static CurlShareCode curl_share_setopt(IntPtr pShare, CurlShareOption optCode, IntPtr option)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_share_setopt_unix(pShare, optCode, option)
                 : curl_share_setopt_win(pShare, optCode, option);
@@ -980,8 +907,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_slist_append(IntPtr slist, string data)
         {
-            InitPlatformType();
-
             return PlatformType == NETPlatformType.Unix
                 ? curl_slist_append_unix(slist, data)
                 : curl_slist_append_win(slist, data);
@@ -995,7 +920,6 @@ namespace CurlSharp
 
         internal static void curl_slist_free_all(IntPtr pList)
         {
-            InitPlatformType();
             if (PlatformType == NETPlatformType.Unix) curl_slist_free_all_unix(pList);
             else curl_slist_free_all_win(pList);
         }
@@ -1008,18 +932,10 @@ namespace CurlSharp
 
         internal static IntPtr curl_version_info(CurlVersion ver)
         {
-            InitPlatformType();
             return PlatformType == NETPlatformType.Unix ? curl_version_info_unix(ver) : curl_version_info_win(ver);
         }
 
 #if  USE_LIBCURLSHIM
-
-        private static void ShimInitPlatform()
-        {
-            InitPlatformType();
-            if ((PlatformType == NETPlatformType.Unknown) || (PlatformType == NETPlatformType.Unix))
-                throw new InvalidOperationException("Can not run on other platform than Win NET");
-        }
 
         // libcurlshim imports
 
@@ -1028,7 +944,6 @@ namespace CurlSharp
 
         internal static void curl_shim_initialize()
         {
-            ShimInitPlatform();
             curl_shim_initialize_win();
         }
 
@@ -1037,7 +952,6 @@ namespace CurlSharp
 
         internal static void curl_shim_cleanup()
         {
-            ShimInitPlatform();
             curl_shim_cleanup_win();
         }
 
@@ -1047,7 +961,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_shim_alloc_strings()
         {
-            ShimInitPlatform();
             return curl_shim_alloc_strings_win();
         }
 
@@ -1057,7 +970,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_shim_add_string_to_slist(IntPtr pStrings, string str)
         {
-            ShimInitPlatform();
             return curl_shim_add_string_to_slist_win(pStrings, str);
         }
 
@@ -1067,7 +979,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_shim_get_string_from_slist(IntPtr pSlist, ref IntPtr pStr)
         {
-            ShimInitPlatform();
             return curl_shim_get_string_from_slist_win(pSlist, ref pStr);
         }
 
@@ -1077,7 +988,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_shim_add_string(IntPtr pStrings, string str)
         {
-            ShimInitPlatform();
             return curl_shim_add_string_win(pStrings, str);
         }
 
@@ -1087,7 +997,6 @@ namespace CurlSharp
 
         internal static void curl_shim_free_strings(IntPtr pStrings)
         {
-            ShimInitPlatform();
             curl_shim_free_strings_win(pStrings);
         }
 
@@ -1115,8 +1024,6 @@ namespace CurlSharp
             _ShimSslCtxCallback pCtx,
             _ShimIoctlCallback pIoctl)
         {
-            ShimInitPlatform();
-
             return curl_shim_install_delegates_win(
                 pCurl,
                 pThis,
@@ -1135,7 +1042,6 @@ namespace CurlSharp
 
         internal static void curl_shim_cleanup_delegates(IntPtr pThis)
         {
-            ShimInitPlatform();
             curl_shim_cleanup_delegates_win(pThis);
         }
 
@@ -1159,7 +1065,6 @@ namespace CurlSharp
             ref int mn,
             ref int ss)
         {
-            ShimInitPlatform();
             curl_shim_get_file_time_win(unixTime, ref yy, ref mm, ref dd, ref hh, ref mn, ref ss);
         }
 
@@ -1169,7 +1074,6 @@ namespace CurlSharp
 
         internal static void curl_shim_free_slist(IntPtr p)
         {
-            ShimInitPlatform();
             curl_shim_free_slist_win(p);
         }
 
@@ -1179,7 +1083,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_shim_alloc_fd_sets()
         {
-            ShimInitPlatform();
             return curl_shim_alloc_fd_sets_win();
         }
 
@@ -1189,7 +1092,6 @@ namespace CurlSharp
 
         internal static void curl_shim_free_fd_sets(IntPtr fdsets)
         {
-            ShimInitPlatform();
             curl_shim_free_fd_sets_win(fdsets);
         }
 
@@ -1198,7 +1100,6 @@ namespace CurlSharp
 
         internal static CurlMultiCode curl_shim_multi_fdset(IntPtr multi, IntPtr fdsets, ref int maxFD)
         {
-            ShimInitPlatform();
             return curl_shim_multi_fdset_win(multi, fdsets, ref maxFD);
         }
 
@@ -1207,7 +1108,6 @@ namespace CurlSharp
 
         internal static int curl_shim_select(int maxFD, IntPtr fdsets, int milliseconds)
         {
-            ShimInitPlatform();
             return curl_shim_select_win(maxFD, fdsets, milliseconds);
         }
 
@@ -1217,7 +1117,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_shim_multi_info_read(IntPtr multi, ref int nMsgs)
         {
-            ShimInitPlatform();
             return curl_shim_multi_info_read_win(multi, ref nMsgs);
         }
 
@@ -1227,7 +1126,6 @@ namespace CurlSharp
 
         internal static void curl_shim_multi_info_free(IntPtr multiInfo)
         {
-            ShimInitPlatform();
             curl_shim_multi_info_free_win(multiInfo);
         }
 
@@ -1236,7 +1134,6 @@ namespace CurlSharp
 
         internal static int curl_shim_formadd(IntPtr[] ppForms, IntPtr[] pParams, int nParams)
         {
-            ShimInitPlatform();
             return curl_shim_formadd_win(ppForms, pParams, nParams);
         }
 
@@ -1254,7 +1151,6 @@ namespace CurlSharp
             _ShimLockCallback pLock,
             _ShimUnlockCallback pUnlock)
         {
-            ShimInitPlatform();
             return curl_shim_install_share_delegates_win(pShare, pThis, pLock, pUnlock);
         }
 
@@ -1264,7 +1160,6 @@ namespace CurlSharp
 
         internal static void curl_shim_cleanup_share_delegates(IntPtr pShare)
         {
-            ShimInitPlatform();
             curl_shim_cleanup_share_delegates_win(pShare);
         }
 
@@ -1274,7 +1169,6 @@ namespace CurlSharp
 
         internal static int curl_shim_get_version_int_value(IntPtr p, int offset)
         {
-            ShimInitPlatform();
             return curl_shim_get_version_int_value_win(p, offset);
         }
 
@@ -1284,7 +1178,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_shim_get_version_char_ptr(IntPtr p, int offset)
         {
-            ShimInitPlatform();
             return curl_shim_get_version_char_ptr_win(p, offset);
         }
 
@@ -1294,7 +1187,6 @@ namespace CurlSharp
 
         internal static int curl_shim_get_number_of_protocols(IntPtr p, int offset)
         {
-            ShimInitPlatform();
             return curl_shim_get_number_of_protocols_win(p, offset);
         }
 
@@ -1304,7 +1196,6 @@ namespace CurlSharp
 
         internal static IntPtr curl_shim_get_protocol_string(IntPtr p, int offset, int index)
         {
-            ShimInitPlatform();
             return curl_shim_get_protocol_string_win(p, offset, index);
         }
 
