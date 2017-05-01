@@ -988,17 +988,16 @@ namespace CurlSharp
         }
 
         [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_slist_free_all", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_slist_free_all_unix(IntPtr pList);
+        private static extern void curl_slist_free_all_unix(IntPtr pList);
 
         [DllImport(CURL_LIB_WIN, EntryPoint = "curl_slist_free_all", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_slist_free_all_win(IntPtr pList);
+        private static extern void curl_slist_free_all_win(IntPtr pList);
 
-        internal static CurlShareCode curl_slist_free_all(IntPtr pList)
+        internal static void curl_slist_free_all(IntPtr pList)
         {
             InitPlatformType();
-            return PlatformType == NETPlatformType.Unix
-                ? curl_slist_free_all_unix(pList)
-                : curl_slist_free_all_win(pList);
+            if (PlatformType == NETPlatformType.Unix) curl_slist_free_all_unix(pList);
+            else curl_slist_free_all_win(pList);
         }
 
         [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_version_info", CallingConvention = CallingConvention.Cdecl)]
