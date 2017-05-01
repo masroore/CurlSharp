@@ -100,48 +100,6 @@ namespace CurlSharp
         }
 
         /// <summary>
-        ///     URL encode a String.
-        /// </summary>
-        /// <param name="url">The string to URL encode.</param>
-        /// <param name="length">
-        ///     Input string length;
-        ///     use 0 for cURL to determine.
-        /// </param>
-        /// <returns>A new URL encoded string.</returns>
-        /// <exception cref="System.InvalidOperationException">
-        ///     Thrown if cURL isn't properly initialized.
-        /// </exception>
-        public static string Escape(string url, int length)
-        {
-            EnsureCurl();
-            var p = NativeMethods.curl_escape(url, length);
-            var s = Marshal.PtrToStringAnsi(p);
-            NativeMethods.curl_free(p);
-            return s;
-        }
-
-        /// <summary>
-        ///     URL decode a String.
-        /// </summary>
-        /// <param name="url">The string to URL decode.</param>
-        /// <param name="length">
-        ///     Input string length;
-        ///     use 0 for cURL to determine.
-        /// </param>
-        /// <returns>A new URL decoded string.</returns>
-        /// <exception cref="System.InvalidOperationException">
-        ///     Thrown if cURL isn't properly initialized.
-        /// </exception>
-        public static string Unescape(string url, int length)
-        {
-            EnsureCurl();
-            var p = NativeMethods.curl_unescape(url, length);
-            var s = Marshal.PtrToStringAnsi(p);
-            NativeMethods.curl_free(p);
-            return s;
-        }
-
-        /// <summary>
         ///     Get a <see cref="CurlVersionInfoData" /> object.
         /// </summary>
         /// <param name="ver">

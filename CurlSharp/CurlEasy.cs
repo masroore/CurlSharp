@@ -1661,6 +1661,54 @@ namespace CurlSharp
         }
 
         /// <summary>
+        ///     URL encode a String.
+        /// </summary>
+        /// <param name="url">The string to URL encode.</param>
+        /// <param name="length">
+        ///     Input string length;
+        ///     use 0 for cURL to determine.
+        /// </param>
+        /// <returns>A new URL encoded string.</returns>
+        /// <exception cref="NullReferenceException">
+        ///     This is thrown if
+        ///     the native <c>CURL*</c> handle wasn't created successfully.
+        /// </exception>
+        public string Escape(string url)
+        {
+            ensureHandle();
+
+            var length = System.Text.Encoding.ASCII.GetBytes(url).Length;
+            var p = NativeMethods.curl_easy_escape(_pCurl, url, length);
+            var s = Marshal.PtrToStringAnsi(p);
+            NativeMethods.curl_free(p);
+            return s;
+        }
+
+        /// <summary>
+        ///     URL decode a String.
+        /// </summary>
+        /// <param name="url">The string to URL decode.</param>
+        /// <param name="length">
+        ///     Input string length;
+        ///     use 0 for cURL to determine.
+        /// </param>
+        /// <returns>A new URL decoded string.</returns>
+        /// <exception cref="NullReferenceException">
+        ///     This is thrown if
+        ///     the native <c>CURL*</c> handle wasn't created successfully.
+        /// </exception>
+        public string Unescape(string url)
+        {
+            ensureHandle();
+            
+            var length = System.Text.Encoding.ASCII.GetBytes(url).Length;
+            var p = NativeMethods.curl_easy_unescape(_pCurl, url, length, out int outLength);
+            var s = Marshal.PtrToStringAnsi(p, outLength);
+            NativeMethods.curl_free(p);
+            return s;
+        }
+
+        /// <summary>
         ///     Get a string description of an error code.
         /// </summary>
         /// <param name="code">Error code.</param>

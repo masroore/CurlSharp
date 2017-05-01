@@ -93,17 +93,17 @@ namespace CurlSharp
 
         #endregion
 
-        #region curl_escape
+        #region curl_easy_escape
 
         [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-        public static extern IntPtr curl_escape(string url, int length);
+        public static extern IntPtr curl_easy_escape(IntPtr pEasy, string url, int length);
 
         #endregion
 
-        #region curl_unescape
+        #region curl_easy_unescape
 
         [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-        public static extern IntPtr curl_unescape(string url, int length);
+        public static extern IntPtr curl_easy_unescape(IntPtr pEasy, string url, int inLength, out int outLength);
 
         #endregion
 
