@@ -72,7 +72,7 @@ namespace CurlSharp
         {
             get
             {
-                var codeBase = Assembly.GetEntryAssembly().CodeBase;
+                var codeBase = typeof(NativeMethods).GetTypeInfo().Assembly.CodeBase;
                 var uri = new UriBuilder(codeBase);
                 var path = Uri.UnescapeDataString(uri.Path);
                 return Path.GetDirectoryName(path);
