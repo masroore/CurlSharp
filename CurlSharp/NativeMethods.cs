@@ -32,11 +32,9 @@ namespace CurlSharp
     /// </summary>
     internal static unsafe class NativeMethods
     {
-        private const string CURL_LIB_WIN = "libcurl.dll"; // should be in amd64 directory
+        private const string LIBCURL = "libcurl";
 
-        private const string CURL_LIB_UNIX = "libcurl";
-
-        private const string CURLSHIM_LIB_WIN = "libcurlshim.dll";
+        private const string LIBCURLSHIM = "libcurlshim";
 
         private const string LIBC_LINUX = "libc";
 
@@ -46,215 +44,113 @@ namespace CurlSharp
 
         private const string LIB_DIR_WIN32 = "i386";
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool SetDllDirectory(string lpPathName);
-
-        internal enum NETPlatformType
+        static NativeMethods()
         {
-            Unknown,
-            Unix,
-            Win64,
-            Win32
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                switch (RuntimeInformation.OSArchitecture)
+                {
+                    case Architecture.X64:
+                        SetDllDirectory(Path.Combine(AssemblyDirectory, LIB_DIR_WIN64));
+                        break;
+                    case Architecture.X86:
+                        SetDllDirectory(Path.Combine(AssemblyDirectory, LIB_DIR_WIN32));
+                        break;
+                }
+            }
+#if USE_LIBCURLSHIM
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                throw new InvalidOperationException("Can not run on other platform than Win NET");
+#endif
         }
-
-        internal static string AssemblyDirectory
+        
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetDllDirectory(string lpPathName);
+        
+        private static string AssemblyDirectory
         {
             get
             {
-                var codeBase = Assembly.GetEntryAssembly().CodeBase;
+                var codeBase = typeof(NativeMethods).GetTypeInfo().Assembly.CodeBase;
                 var uri = new UriBuilder(codeBase);
                 var path = Uri.UnescapeDataString(uri.Path);
                 return Path.GetDirectoryName(path);
             }
         }
 
-        internal static NETPlatformType PlatformType { get; set; } = NETPlatformType.Unknown;
+        #region curl_global_init
 
-        internal static NETPlatformType ProcessPlatformType()
-        {
-            var dllSubFolder = string.Empty;
-            var type = GetPlatformType();
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_global_init(int flags);
 
-            if (type == NETPlatformType.Unknown)
-                throw new InvalidOperationException("Can not determine type of NET platform");
+        #endregion
 
-            switch (type)
-            {
-                case NETPlatformType.Win64:
-                    dllSubFolder = LIB_DIR_WIN64;
-                    break;
-                case NETPlatformType.Win32:
-                    dllSubFolder = LIB_DIR_WIN32;
-                    break;
-            }
+        #region curl_global_cleanup
 
-            if ((type == NETPlatformType.Win32) || (type == NETPlatformType.Win64))
-            {
-                var path = Path.Combine(AssemblyDirectory, dllSubFolder);
-                SetDllDirectory(path);
-            }
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_global_cleanup();
 
-            return type;
-        }
+        #endregion
 
-        internal static NETPlatformType GetPlatformType()
-        {
-            var type = NETPlatformType.Unknown;
-            
-            if ((Type.GetType("Mono.Runtime") != null) && (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)))
-                type = NETPlatformType.Unix;
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                type = NETPlatformType.Unix;
-            else
-                switch (IntPtr.Size)
-                {
-                    case 8:
-                        type = NETPlatformType.Win64;
-                        break;
-                    case 4:
-                        type = NETPlatformType.Win32;
-                        break;
-                }
+        #region curl_easy_escape
 
-            return type;
-        }
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public static extern IntPtr curl_easy_escape(IntPtr pEasy, string url, int length);
 
-        // internal delegates from cURL
+        #endregion
 
-        // libcurl imports
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_global_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_global_init_unix(int flags);
+        #region curl_easy_unescape
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_global_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_global_init_win(int flags);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public static extern IntPtr curl_easy_unescape(IntPtr pEasy, string url, int inLength, out int outLength);
 
-        private static void InitPlatformType()
-        {
-            if (PlatformType == NETPlatformType.Unknown) PlatformType = ProcessPlatformType();
-        }
+        #endregion
 
-        internal static CurlCode curl_global_init(int flags)
-        {
-            InitPlatformType();
+        #region curl_free
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Unix:
-                    return curl_global_init_unix(flags);
-                default:
-                    return curl_global_init_win(flags);
-            }
-        }
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_free(IntPtr p);
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_global_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_global_cleanup_unix();
+        #endregion
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_global_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_global_cleanup_win();
+        #region curl_version
 
-        internal static void curl_global_cleanup()
-        {
-            InitPlatformType();
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_version();
 
-            if (PlatformType == NETPlatformType.Unix)
-                curl_global_cleanup_unix();
-            else
-                curl_global_cleanup_win();
-        }
+        #endregion
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_escape", CallingConvention = CallingConvention.Cdecl,
-             CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_escape_unix(string url, int length);
+        #region curl_version_info
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_escape", CallingConvention = CallingConvention.Cdecl,
-             CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_escape_win(string url, int length);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_version_info(CurlVersion ver);
 
-        internal static IntPtr curl_escape(string url, int length)
-        {
-            InitPlatformType();
-            return PlatformType == NETPlatformType.Unix ? curl_escape_unix(url, length) : curl_escape_win(url, length);
-        }
+        #endregion
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_unescape", CallingConvention = CallingConvention.Cdecl,
-             CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_unescape_unix(string url, int length);
+        #region curl_easy_init
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_unescape", CallingConvention = CallingConvention.Cdecl,
-             CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_unescape_win(string url, int length);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_easy_init();
 
+        #endregion
 
-        internal static IntPtr curl_unescape(string url, int length)
-        {
-            InitPlatformType();
-            return PlatformType == NETPlatformType.Unix
-                ? curl_unescape_unix(url, length)
-                : curl_unescape_win(url, length);
-        }
+        #region curl_easy_cleanup
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_free", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_free_unix(IntPtr p);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_easy_cleanup(IntPtr pCurl);
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_free", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_free_win(IntPtr p);
+        #endregion
 
-        internal static void curl_free(IntPtr p)
-        {
-            InitPlatformType();
+        #region curl_easy_setopt
 
-            if (PlatformType == NETPlatformType.Unix)
-                curl_free_unix(p);
-            else
-                curl_free_win(p);
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_version", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_version_unix();
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_version", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_version_win();
-
-
-        internal static IntPtr curl_version()
-        {
-            InitPlatformType();
-            return PlatformType == NETPlatformType.Unix ? curl_version_unix() : curl_version_win();
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_init_unix();
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_init_win();
-
-        internal static IntPtr curl_easy_init()
-        {
-            InitPlatformType();
-            return PlatformType == NETPlatformType.Unix ? curl_easy_init_unix() : curl_easy_init_win();
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_easy_cleanup_unix(IntPtr pCurl);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_easy_cleanup_win(IntPtr pCurl);
-
-        internal static void curl_easy_cleanup(IntPtr pCurl)
-        {
-            InitPlatformType();
-
-            if (PlatformType == NETPlatformType.Unix)
-                curl_easy_cleanup_unix(pCurl);
-            else
-                curl_easy_cleanup_win(pCurl);
-        }
+        #region Delegates
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        internal delegate int _CurlGenericCallback(IntPtr ptr, int sz, int nmemb, IntPtr userdata);
+        public delegate int _CurlGenericCallback(IntPtr ptr, int sz, int nmemb, IntPtr userdata);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        internal delegate int _CurlProgressCallback(
+        public delegate int _CurlProgressCallback(
             IntPtr extraData,
             double dlTotal,
             double dlNow,
@@ -262,7 +158,7 @@ namespace CurlSharp
             double ulNow);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        internal delegate int _CurlDebugCallback(
+        public delegate int _CurlDebugCallback(
             IntPtr ptrCurl,
             CurlInfoType infoType,
             string message,
@@ -270,270 +166,162 @@ namespace CurlSharp
             IntPtr ptrUserData);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        internal delegate int _CurlSslCtxCallback(IntPtr ctx, IntPtr parm);
+        public delegate int _CurlSslCtxCallback(IntPtr ctx, IntPtr parm);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        internal delegate CurlIoError _CurlIoctlCallback(CurlIoCommand cmd, IntPtr parm);
+        public delegate CurlIoError _CurlIoctlCallback(CurlIoCommand cmd, IntPtr parm);
 
-        // curl_easy_setopt() overloads
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_unix(IntPtr pCurl, CurlOption opt, IntPtr parm);
+        #endregion
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_win(IntPtr pCurl, CurlOption opt, IntPtr parm);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, IntPtr parm);
 
-        internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, IntPtr parm)
-        {
-            InitPlatformType();
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, string parm);
 
-            return PlatformType == NETPlatformType.Unix
-                ? curl_easy_setopt_unix(pCurl, opt, parm)
-                : curl_easy_setopt_win(pCurl, opt, parm);
-        }
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, byte[] parm);
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_unix(IntPtr pCurl, CurlOption opt, string parm);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, long parm);
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_win(IntPtr pCurl, CurlOption opt, string parm);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, bool parm);
 
-        internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, string parm)
-        {
-            InitPlatformType();
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, _CurlGenericCallback parm);
 
-            return PlatformType == NETPlatformType.Unix
-                ? curl_easy_setopt_unix(pCurl, opt, parm)
-                : curl_easy_setopt_win(pCurl, opt, parm);
-        }
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, _CurlProgressCallback parm);
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_unix(IntPtr pCurl, CurlOption opt, byte[] parm);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, _CurlDebugCallback parm);
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_win(IntPtr pCurl, CurlOption opt, byte[] parm);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, _CurlSslCtxCallback parm);
 
-        internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, byte[] parm)
-        {
-            InitPlatformType();
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm);
 
-            return PlatformType == NETPlatformType.Unix
-                ? curl_easy_setopt_unix(pCurl, opt, parm)
-                : curl_easy_setopt_win(pCurl, opt, parm);
-        }
+        #endregion
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_unix(IntPtr pCurl, CurlOption opt, long parm);
+        #region curl_easy_perform
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_win(IntPtr pCurl, CurlOption opt, long parm);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_easy_perform(IntPtr pCurl);
 
+        #endregion
 
-        internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, long parm)
-        {
-            InitPlatformType();
+        #region curl_easy_duphandle
 
-            return PlatformType == NETPlatformType.Unix
-                ? curl_easy_setopt_unix(pCurl, opt, parm)
-                : curl_easy_setopt_win(pCurl, opt, parm);
-        }
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_easy_duphandle(IntPtr pCurl);
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_unix(IntPtr pCurl, CurlOption opt, bool parm);
+        #endregion
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_win(IntPtr pCurl, CurlOption opt, bool parm);
+        #region curl_easy_strerror
 
-        internal static CurlCode curl_easy_setopt(IntPtr pCurl, CurlOption opt, bool parm)
-        {
-            InitPlatformType();
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_easy_strerror(CurlCode err);
 
-            return PlatformType == NETPlatformType.Unix
-                ? curl_easy_setopt_unix(pCurl, opt, parm)
-                : curl_easy_setopt_win(pCurl, opt, parm);
-        }
+        #endregion
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_unix(
-            IntPtr pCurl,
-            CurlOption opt,
-            _CurlGenericCallback parm);
+        #region curl_easy_getinfo
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_win(IntPtr pCurl, CurlOption opt, _CurlGenericCallback parm);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_easy_getinfo(IntPtr pCurl, CurlInfo info, ref IntPtr pInfo);
 
-        internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlGenericCallback parm)
-        {
-            CurlCode result;
-            InitPlatformType();
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlCode curl_easy_getinfo(IntPtr pCurl, CurlInfo info, ref double dblVal);
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Unix:
-                    result = curl_easy_setopt_cb_unix(pCurl, opt, parm);
-                    break;
-                default:
-                    result = curl_easy_setopt_cb_win(pCurl, opt, parm);
-                    break;
-            }
+        #endregion
 
-            return result;
-        }
+        #region curl_easy_reset
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_unix(
-            IntPtr pCurl,
-            CurlOption opt,
-            _CurlProgressCallback parm);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_easy_reset(IntPtr pCurl);
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_win(IntPtr pCurl, CurlOption opt, _CurlProgressCallback parm);
+        #endregion
 
-        internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlProgressCallback parm)
-        {
-            CurlCode result;
-            InitPlatformType();
+        #region curl_multi_init
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Unix:
-                    result = curl_easy_setopt_cb_unix(pCurl, opt, parm);
-                    break;
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_multi_init();
 
-                default:
-                    result = curl_easy_setopt_cb_win(pCurl, opt, parm);
-                    break;
-            }
+        #endregion
 
-            return result;
-        }
+        #region curl_multi_cleanup
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_unix(IntPtr pCurl, CurlOption opt, _CurlDebugCallback parm);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlMultiCode curl_multi_cleanup(IntPtr pmulti);
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_win(IntPtr pCurl, CurlOption opt, _CurlDebugCallback parm);
+        #endregion
 
-        internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlDebugCallback parm)
-        {
-            CurlCode result;
-            InitPlatformType();
+        #region curl_multi_add_handle
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Unix:
-                    result = curl_easy_setopt_cb_unix(pCurl, opt, parm);
-                    break;
-                default:
-                    result = curl_easy_setopt_cb_win(pCurl, opt, parm);
-                    break;
-            }
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlMultiCode curl_multi_add_handle(IntPtr pmulti, IntPtr peasy);
 
-            return result;
-        }
+        #endregion
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_unix(IntPtr pCurl, CurlOption opt, _CurlSslCtxCallback parm);
+        #region curl_multi_remove_handle
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_win(IntPtr pCurl, CurlOption opt, _CurlSslCtxCallback parm);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlMultiCode curl_multi_remove_handle(IntPtr pmulti, IntPtr peasy);
 
-        internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlSslCtxCallback parm)
-        {
-            CurlCode result;
-            InitPlatformType();
+        #endregion
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Unix:
-                    result = curl_easy_setopt_cb_unix(pCurl, opt, parm);
-                    break;
-                default:
-                    result = curl_easy_setopt_cb_win(pCurl, opt, parm);
-                    break;
-            }
+        #region curl_multi_setopt
 
-            return result;
-        }
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlMultiCode curl_multi_setopt(IntPtr pmulti, CurlMultiOption opt, bool parm);
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_unix(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlMultiCode curl_multi_setopt(IntPtr pmulti, CurlMultiOption opt, long parm);
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_setopt_cb_win(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm);
+        #endregion
 
-        internal static CurlCode curl_easy_setopt_cb(IntPtr pCurl, CurlOption opt, _CurlIoctlCallback parm)
-        {
-            CurlCode result;
-            InitPlatformType();
+        #region curl_multi_strerror
 
-            switch (PlatformType)
-            {
-                case NETPlatformType.Unix:
-                    result = curl_easy_setopt_cb_unix(pCurl, opt, parm);
-                    break;
-                default:
-                    result = curl_easy_setopt_cb_win(pCurl, opt, parm);
-                    break;
-            }
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_multi_strerror(CurlMultiCode errorNum);
 
-            return result;
-        }
+        #endregion
+
+        #region curl_multi_perform
+
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlMultiCode curl_multi_perform(IntPtr pmulti, ref int runningHandles);
+
+        #endregion
 
 #if !USE_LIBCURLSHIM
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_fdset", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_fdset_unix(IntPtr pmulti,
-            [In, Out] ref fd_set read_fd_set,
-            [In, Out] ref fd_set write_fd_set,
-            [In, Out] ref fd_set exc_fd_set,
-            [In, Out] ref int max_fd);
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_fdset", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_fdset_win(IntPtr pmulti,
-            [In, Out] ref fd_set read_fd_set,
-            [In, Out] ref fd_set write_fd_set,
-            [In, Out] ref fd_set exc_fd_set,
-            [In, Out] ref int max_fd);
+        #region curl_multi_fdset
 
-        internal static CurlMultiCode curl_multi_fdset(IntPtr pmulti,
-            [In, Out] ref fd_set read_fd_set,
-            [In, Out] ref fd_set write_fd_set,
-            [In, Out] ref fd_set exc_fd_set,
-            [In, Out] ref int max_fd)
-        {
-            CurlMultiCode result;
-            InitPlatformType();
-
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.Unix:
-                    result = curl_multi_fdset_unix(pmulti, ref read_fd_set,
-                        ref write_fd_set, ref exc_fd_set, ref max_fd);
-                    break;
-                default:
-                    result = curl_multi_fdset_win(pmulti, ref read_fd_set,
-                        ref write_fd_set, ref exc_fd_set, ref max_fd);
-                    break;
-            }
-            return result;
-        }
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlMultiCode curl_multi_fdset(IntPtr pmulti,
+            [In] [Out] ref fd_set read_fd_set,
+            [In] [Out] ref fd_set write_fd_set,
+            [In] [Out] ref fd_set exc_fd_set,
+            [In] [Out] ref int max_fd);
 
         [StructLayout(LayoutKind.Sequential)]
-        internal unsafe struct fd_set
+        public struct fd_set
         {
-            internal uint fd_count;
+            public uint fd_count;
 
-            // [MarshalAs(UnmanagedType.ByValArray, SizeConst = FD_SETSIZE)] internal IntPtr[] fd_array;
-            internal fixed uint fd_array [FD_SETSIZE];
+            // [MarshalAs(UnmanagedType.ByValArray, SizeConst = FD_SETSIZE)] public IntPtr[] fd_array;
+            public fixed uint fd_array[FD_SETSIZE];
 
-            internal const int FD_SETSIZE = 64;
+            public const int FD_SETSIZE = 64;
 
-            internal void Cleanup()
+            public void Cleanup()
             {
                 // fd_array = null;
             }
 
-            internal static fd_set Create()
+            public static fd_set Create()
             {
                 return new fd_set
                 {
@@ -542,7 +330,7 @@ namespace CurlSharp
                 };
             }
 
-            internal static fd_set Create(IntPtr socket)
+            public static fd_set Create(IntPtr socket)
             {
                 var handle = Create();
                 handle.fd_count = 1;
@@ -551,32 +339,38 @@ namespace CurlSharp
             }
         }
 
-        internal static unsafe void FD_ZERO(fd_set fds)
+        public static void FD_ZERO(fd_set fds)
         {
             for (var i = 0; i < fd_set.FD_SETSIZE; i++)
+            {
                 fds.fd_array[i] = 0;
+            }
             fds.fd_count = 0;
         }
 
+        #endregion
+
+        #region select
+
         [StructLayout(LayoutKind.Sequential)]
-        internal struct timeval
+        public struct timeval
         {
             /// <summary>
             ///     Time interval, in seconds.
             /// </summary>
-            internal int tv_sec;
+            public int tv_sec;
 
             /// <summary>
             ///     Time interval, in microseconds.
             /// </summary>
-            internal int tv_usec;
+            public int tv_usec;
 
-            internal static timeval Create(int milliseconds)
+            public static timeval Create(int milliseconds)
             {
                 return new timeval
                 {
-                    tv_sec = milliseconds/1000,
-                    tv_usec = milliseconds%1000*1000
+                    tv_sec = milliseconds / 1000,
+                    tv_usec = milliseconds % 1000 * 1000
                 };
             }
         }
@@ -584,517 +378,147 @@ namespace CurlSharp
         [DllImport(LIBC_LINUX, EntryPoint = "select")]
         private static extern int select_unix(
             int nfds, // number of sockets, (ignored in winsock)
-            [In, Out] ref fd_set readfds, // read sockets to watch
-            [In, Out] ref fd_set writefds, // write sockets to watch
-            [In, Out] ref fd_set exceptfds, // error sockets to watch
+            [In] [Out] ref fd_set readfds, // read sockets to watch
+            [In] [Out] ref fd_set writefds, // write sockets to watch
+            [In] [Out] ref fd_set exceptfds, // error sockets to watch
             ref timeval timeout);
-
 
         [DllImport(WINSOCK_LIB, EntryPoint = "select")]
         private static extern int select_win(
             int nfds, // number of sockets, (ignored in winsock)
-            [In, Out] ref fd_set readfds, // read sockets to watch
-            [In, Out] ref fd_set writefds, // write sockets to watch
-            [In, Out] ref fd_set exceptfds, // error sockets to watch
+            [In] [Out] ref fd_set readfds, // read sockets to watch
+            [In] [Out] ref fd_set writefds, // write sockets to watch
+            [In] [Out] ref fd_set exceptfds, // error sockets to watch
             ref timeval timeout);
 
-
-        internal static int select(
+        public static int select(
             int nfds, // number of sockets, (ignored in winsock)
-            [In, Out] ref fd_set readfds, // read sockets to watch
-            [In, Out] ref fd_set writefds, // write sockets to watch
-            [In, Out] ref fd_set exceptfds, // error sockets to watch
+            [In] [Out] ref fd_set readfds, // read sockets to watch
+            [In] [Out] ref fd_set writefds, // write sockets to watch
+            [In] [Out] ref fd_set exceptfds, // error sockets to watch
             ref timeval timeout)
         {
             int result;
-            InitPlatformType();
 
-            switch (PlatformType)
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                case NETPlatformType.Unix:
-                    result = select_unix(
-                        nfds, // number of sockets, (ignored in winsock)
-                        ref readfds, // read sockets to watch
-                        ref writefds, // write sockets to watch
-                        ref exceptfds, // error sockets to watch
-                        ref timeout);
-                    break;
-                default:
-                    result = select_win(
-                        nfds, // number of sockets, (ignored in winsock)
-                        ref readfds, // read sockets to watch
-                        ref writefds, // write sockets to watch
-                        ref exceptfds, // error sockets to watch
-                        ref timeout);
-                    break;
+                result = select_win(
+                    nfds, // number of sockets, (ignored in winsock)
+                    ref readfds, // read sockets to watch
+                    ref writefds, // write sockets to watch
+                    ref exceptfds, // error sockets to watch
+                    ref timeout);
             }
-            return result;
-        }
-
-
-        // [DllImport(WINSOCK_LIB, EntryPoint = "select")]
-        // internal static int select(int ndfs, fd_set* readfds, fd_set* writefds, fd_set* exceptfds, timeval* timeout);
-#endif
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_perform", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_perform_unix(IntPtr pCurl);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_perform", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_perform_win(IntPtr pCurl);
-
-        internal static CurlCode curl_easy_perform(IntPtr pCurl)
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix ? curl_easy_perform_unix(pCurl) : curl_easy_perform_win(pCurl);
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_duphandle", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_duphandle_unix(IntPtr pCurl);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_duphandle", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_duphandle_win(IntPtr pCurl);
-
-        internal static IntPtr curl_easy_duphandle(IntPtr pCurl)
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix
-                ? curl_easy_duphandle_unix(pCurl)
-                : curl_easy_duphandle_win(pCurl);
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_strerror_unix(CurlCode err);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_easy_strerror_win(CurlCode err);
-
-        internal static IntPtr curl_easy_strerror(CurlCode err)
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix ? curl_easy_strerror_unix(err) : curl_easy_strerror_win(err);
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_getinfo_unix(IntPtr pCurl, CurlInfo info, ref IntPtr pInfo);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_getinfo_win(IntPtr pCurl, CurlInfo info, ref IntPtr pInfo);
-
-        internal static CurlCode curl_easy_getinfo(IntPtr pCurl, CurlInfo info, ref IntPtr pInfo)
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix
-                ? curl_easy_getinfo_unix(pCurl, info, ref pInfo)
-                : curl_easy_getinfo_win(pCurl, info, ref pInfo);
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_getinfo_unix(IntPtr pCurl, CurlInfo info, ref double dblVal);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_getinfo", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlCode curl_easy_getinfo_win(IntPtr pCurl, CurlInfo info, ref double dblVal);
-
-        internal static CurlCode curl_easy_getinfo(IntPtr pCurl, CurlInfo info, ref double pInfo)
-        {
-            CurlCode result;
-            InitPlatformType();
-
-            switch (PlatformType)
-            {
-                case NETPlatformType.Unix:
-                    result = curl_easy_getinfo_unix(pCurl, info, ref pInfo);
-                    break;
-                default:
-                    result = curl_easy_getinfo_win(pCurl, info, ref pInfo);
-                    break;
-            }
-
-            return result;
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_easy_reset", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_easy_reset_unix(IntPtr pCurl);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_easy_reset", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_easy_reset_win(IntPtr pCurl);
-
-        internal static void curl_easy_reset(IntPtr pCurl)
-        {
-            InitPlatformType();
-
-            if (PlatformType == NETPlatformType.Unix)
-                curl_easy_reset_unix(pCurl);
             else
-                curl_easy_reset_win(pCurl);
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_multi_init_unix();
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_multi_init_win();
-
-        internal static IntPtr curl_multi_init()
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix ? curl_multi_init_unix() : curl_multi_init_win();
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_cleanup_unix(IntPtr pmulti);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_cleanup_win(IntPtr pmulti);
-
-        internal static CurlMultiCode curl_multi_cleanup(IntPtr pmulti)
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix
-                ? curl_multi_cleanup_unix(pmulti)
-                : curl_multi_cleanup_win(pmulti);
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_add_handle", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_add_handle_unix(IntPtr pmulti, IntPtr peasy);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_add_handle", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_add_handle_win(IntPtr pmulti, IntPtr peasy);
-
-        internal static CurlMultiCode curl_multi_add_handle(IntPtr pmulti, IntPtr peasy)
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix
-                ? curl_multi_add_handle_unix(pmulti, peasy)
-                : curl_multi_add_handle_win(pmulti, peasy);
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_remove_handle", CallingConvention = CallingConvention.Cdecl)
-        ]
-        private static extern CurlMultiCode curl_multi_remove_handle_unix(IntPtr pmulti, IntPtr peasy);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_remove_handle", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_remove_handle_win(IntPtr pmulti, IntPtr peasy);
-
-        internal static CurlMultiCode curl_multi_remove_handle(IntPtr pmulti, IntPtr peasy)
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix
-                ? curl_multi_remove_handle_unix(pmulti, peasy)
-                : curl_multi_remove_handle_win(pmulti, peasy);
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_setopt", CallingConvention = CallingConvention.Cdecl)
-        ]
-        private static extern CurlMultiCode curl_multi_setopt_unix(IntPtr pmulti, CurlMultiOption opt, bool parm);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_setopt_win(IntPtr pmulti, CurlMultiOption opt, bool parm);
-
-        internal static CurlMultiCode curl_multi_setopt(IntPtr pmulti, CurlMultiOption opt, bool parm)
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix
-                ? curl_multi_setopt_unix(pmulti, opt, parm)
-                : curl_multi_setopt_win(pmulti, opt, parm);
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_setopt", CallingConvention = CallingConvention.Cdecl)
-        ]
-        private static extern CurlMultiCode curl_multi_setopt_unix(IntPtr pmulti, CurlMultiOption opt, long parm);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_setopt_win(IntPtr pmulti, CurlMultiOption opt, long parm);
-
-        internal static CurlMultiCode curl_multi_setopt(IntPtr pmulti, CurlMultiOption opt, long parm)
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix
-                ? curl_multi_setopt_unix(pmulti, opt, parm)
-                : curl_multi_setopt_win(pmulti, opt, parm);
-        }
-
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_multi_strerror_unix(CurlMultiCode errorNum);
-
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_multi_strerror_win(CurlMultiCode errorNum);
-
-        internal static IntPtr curl_multi_strerror(CurlMultiCode errorNum)
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix
-                ? curl_multi_strerror_unix(errorNum)
-                : curl_multi_strerror_win(errorNum);
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_multi_perform", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_perform_unix(IntPtr pmulti, ref int runningHandles);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_multi_perform", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_multi_perform_win(IntPtr pmulti, ref int runningHandles);
-
-        internal static CurlMultiCode curl_multi_perform(IntPtr pmulti, ref int runningHandles)
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix
-                ? curl_multi_perform_unix(pmulti, ref runningHandles)
-                : curl_multi_perform_win(pmulti, ref runningHandles);
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_formfree", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_formfree_unix(IntPtr pForm);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_formfree", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_formfree_win(IntPtr pForm);
-
-        internal static void curl_formfree(IntPtr pForm)
-        {
-            InitPlatformType();
-
-            switch (PlatformType)
             {
-                case NETPlatformType.Unix:
-                    curl_formfree_unix(pForm);
-                    break;
-                default:
-                    curl_formfree_win(pForm);
-                    break;
+                result = select_unix(
+                    nfds, // number of sockets, (ignored in winsock)
+                    ref readfds, // read sockets to watch
+                    ref writefds, // write sockets to watch
+                    ref exceptfds, // error sockets to watch
+                    ref timeout);
             }
+
+            return result;
         }
 
-#if !USE_LIBCURLSHIM
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_formadd", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_formadd_unix(ref IntPtr pHttppost, ref IntPtr pLastPost,
-            int codeFirst, IntPtr bufFirst,
-            int codeNext, IntPtr bufNext,
-            int codeLast);
-
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_formadd", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_formadd_win(ref IntPtr pHttppost, ref IntPtr pLastPost,
-            int codeFirst, IntPtr bufFirst,
-            int codeNext, IntPtr bufNext,
-            int codeLast);
-
-        internal static int curl_formadd(ref IntPtr pHttppost, ref IntPtr pLastPost,
-            int codeFirst, IntPtr bufFirst,
-            int codeNext, IntPtr bufNext,
-            int codeLast)
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix
-                ? curl_formadd_unix(ref pHttppost, ref pLastPost,
-                    codeFirst, bufFirst,
-                    codeNext, bufNext,
-                    codeLast)
-                : curl_formadd_win(ref pHttppost, ref pLastPost,
-                    codeFirst, bufFirst,
-                    codeNext, bufNext,
-                    codeLast);
-        }
+        #endregion
 
 #endif
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_share_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_share_init_unix();
+        #region curl_share_init
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_share_init", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_share_init_win();
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_share_init();
 
-        internal static IntPtr curl_share_init()
-        {
-            InitPlatformType();
+        #endregion
 
-            return PlatformType == NETPlatformType.Unix ? curl_share_init_unix() : curl_share_init_win();
-        }
+        #region curl_share_cleanup
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_share_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_share_cleanup_unix(IntPtr pShare);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlShareCode curl_share_cleanup(IntPtr pShare);
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_share_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_share_cleanup_win(IntPtr pShare);
+        #endregion
 
-        internal static CurlShareCode curl_share_cleanup(IntPtr pShare)
-        {
-            InitPlatformType();
+        #region curl_share_strerror
 
-            return PlatformType == NETPlatformType.Unix
-                ? curl_share_cleanup_unix(pShare)
-                : curl_share_cleanup_win(pShare);
-        }
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_share_strerror(CurlShareCode errorCode);
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_share_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_share_strerror_unix(CurlShareCode errorCode);
+        #endregion
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_share_strerror", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_share_strerror_win(CurlShareCode errorCode);
+        #region curl_share_setopt
 
-        internal static IntPtr curl_share_strerror(CurlShareCode errorCode)
-        {
-            InitPlatformType();
-
-            return PlatformType == NETPlatformType.Unix
-                ? curl_share_strerror_unix(errorCode)
-                : curl_share_strerror_win(errorCode);
-        }
-
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_share_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_share_setopt_unix(
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlShareCode curl_share_setopt(
             IntPtr pShare,
             CurlShareOption optCode,
             IntPtr option);
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_share_setopt", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_share_setopt_win(IntPtr pShare, CurlShareOption optCode, IntPtr option);
+        #endregion
 
-        internal static CurlShareCode curl_share_setopt(IntPtr pShare, CurlShareOption optCode, IntPtr option)
-        {
-            InitPlatformType();
+        #region curl_formadd
 
-            return PlatformType == NETPlatformType.Unix
-                ? curl_share_setopt_unix(pShare, optCode, option)
-                : curl_share_setopt_win(pShare, optCode, option);
-        }
+#if !USE_LIBCURLSHIM
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_slist_append", CallingConvention = CallingConvention.Cdecl,
-             CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_slist_append_unix(IntPtr slist, string data);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int curl_formadd(ref IntPtr pHttppost, ref IntPtr pLastPost,
+            int codeFirst, IntPtr bufFirst,
+            int codeNext, IntPtr bufNext,
+            int codeLast);
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_slist_append", CallingConvention = CallingConvention.Cdecl,
-             CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_slist_append_win(IntPtr slist, string data);
+#endif
 
-        internal static IntPtr curl_slist_append(IntPtr slist, string data)
-        {
-            InitPlatformType();
+        #endregion
 
-            return PlatformType == NETPlatformType.Unix
-                ? curl_slist_append_unix(slist, data)
-                : curl_slist_append_win(slist, data);
-        }
+        #region curl_formfree
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_slist_free_all", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_slist_free_all_unix(IntPtr pList);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_formfree(IntPtr pForm);
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_slist_free_all", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlShareCode curl_slist_free_all_win(IntPtr pList);
+        #endregion
 
-        internal static CurlShareCode curl_slist_free_all(IntPtr pList)
-        {
-            InitPlatformType();
-            return PlatformType == NETPlatformType.Unix
-                ? curl_slist_free_all_unix(pList)
-                : curl_slist_free_all_win(pList);
-        }
+        #region curl_slist_append
 
-        [DllImport(CURL_LIB_UNIX, EntryPoint = "curl_version_info", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_version_info_unix(CurlVersion ver);
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public static extern IntPtr curl_slist_append(IntPtr slist, string data);
 
-        [DllImport(CURL_LIB_WIN, EntryPoint = "curl_version_info", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_version_info_win(CurlVersion ver);
+        #endregion
 
-        internal static IntPtr curl_version_info(CurlVersion ver)
-        {
-            InitPlatformType();
-            return PlatformType == NETPlatformType.Unix ? curl_version_info_unix(ver) : curl_version_info_win(ver);
-        }
+        #region curl_slist_free_all
 
-#if  USE_LIBCURLSHIM
+        [DllImport(LIBCURL, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_slist_free_all(IntPtr pList);
 
-        private static void ShimInitPlatform()
-        {
-            InitPlatformType();
-            if ((PlatformType == NETPlatformType.Unknown) || (PlatformType == NETPlatformType.Unix))
-                throw new InvalidOperationException("Can not run on other platform than Win NET");
-        }
+        #endregion
 
-        // libcurlshim imports
+#if USE_LIBCURLSHIM
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_initialize", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_initialize_win();
+        #region libcurlshim imports
 
-        internal static void curl_shim_initialize()
-        {
-            ShimInitPlatform();
-            curl_shim_initialize_win();
-        }
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_shim_initialize();
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_cleanup", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_cleanup_win();
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_shim_cleanup();
 
-        internal static void curl_shim_cleanup()
-        {
-            ShimInitPlatform();
-            curl_shim_cleanup_win();
-        }
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_shim_alloc_strings();
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_alloc_strings", CallingConvention = CallingConvention.Cdecl
-         )]
-        private static extern IntPtr curl_shim_alloc_strings_win();
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public static extern IntPtr curl_shim_add_string_to_slist(IntPtr pStrings, string str);
 
-        internal static IntPtr curl_shim_alloc_strings()
-        {
-            ShimInitPlatform();
-            return curl_shim_alloc_strings_win();
-        }
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public static extern IntPtr curl_shim_get_string_from_slist(IntPtr pSlist, ref IntPtr pStr);
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_add_string_to_slist",
-             CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_shim_add_string_to_slist_win(IntPtr pStrings, string str);
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public static extern IntPtr curl_shim_add_string(IntPtr pStrings, string str);
 
-        internal static IntPtr curl_shim_add_string_to_slist(IntPtr pStrings, string str)
-        {
-            ShimInitPlatform();
-            return curl_shim_add_string_to_slist_win(pStrings, str);
-        }
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_shim_free_strings(IntPtr pStrings);
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_string_from_slist",
-             CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_shim_get_string_from_slist_win(IntPtr pSlist, ref IntPtr pStr);
-
-        internal static IntPtr curl_shim_get_string_from_slist(IntPtr pSlist, ref IntPtr pStr)
-        {
-            ShimInitPlatform();
-            return curl_shim_get_string_from_slist_win(pSlist, ref pStr);
-        }
-
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_add_string", CallingConvention = CallingConvention.Cdecl,
-             CharSet = CharSet.Ansi)]
-        private static extern IntPtr curl_shim_add_string_win(IntPtr pStrings, string str);
-
-        internal static IntPtr curl_shim_add_string(IntPtr pStrings, string str)
-        {
-            ShimInitPlatform();
-            return curl_shim_add_string_win(pStrings, str);
-        }
-
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_free_strings", CallingConvention = CallingConvention.Cdecl)
-        ]
-        private static extern void curl_shim_free_strings_win(IntPtr pStrings);
-
-        internal static void curl_shim_free_strings(IntPtr pStrings)
-        {
-            ShimInitPlatform();
-            curl_shim_free_strings_win(pStrings);
-        }
-
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_install_delegates",
-             CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_install_delegates_win(
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int curl_shim_install_delegates(
             IntPtr pCurl,
             IntPtr pThis,
             _ShimWriteCallback pWrite,
@@ -1105,44 +529,11 @@ namespace CurlSharp
             _ShimSslCtxCallback pCtx,
             _ShimIoctlCallback pIoctl);
 
-        internal static int curl_shim_install_delegates(
-            IntPtr pCurl,
-            IntPtr pThis,
-            _ShimWriteCallback pWrite,
-            _ShimReadCallback pRead,
-            _ShimProgressCallback pProgress,
-            _ShimDebugCallback pDebug,
-            _ShimHeaderCallback pHeader,
-            _ShimSslCtxCallback pCtx,
-            _ShimIoctlCallback pIoctl)
-        {
-            ShimInitPlatform();
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_shim_cleanup_delegates(IntPtr pThis);
 
-            return curl_shim_install_delegates_win(
-                pCurl,
-                pThis,
-                pWrite,
-                pRead,
-                pProgress,
-                pDebug,
-                pHeader,
-                pCtx,
-                pIoctl);
-        }
-
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_cleanup_delegates",
-             CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_cleanup_delegates_win(IntPtr pThis);
-
-        internal static void curl_shim_cleanup_delegates(IntPtr pThis)
-        {
-            ShimInitPlatform();
-            curl_shim_cleanup_delegates_win(pThis);
-        }
-
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_file_time", CallingConvention = CallingConvention.Cdecl
-         )]
-        private static extern void curl_shim_get_file_time_win(
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_shim_get_file_time(
             int unixTime,
             ref int yy,
             ref int mm,
@@ -1151,186 +542,77 @@ namespace CurlSharp
             ref int mn,
             ref int ss);
 
-        internal static void curl_shim_get_file_time(
-            int unixTime,
-            ref int yy,
-            ref int mm,
-            ref int dd,
-            ref int hh,
-            ref int mn,
-            ref int ss)
-        {
-            ShimInitPlatform();
-            curl_shim_get_file_time_win(unixTime, ref yy, ref mm, ref dd, ref hh, ref mn, ref ss);
-        }
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_shim_free_slist(IntPtr p);
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_file_time", CallingConvention = CallingConvention.Cdecl
-         )]
-        private static extern void curl_shim_free_slist_win(IntPtr p);
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_shim_alloc_fd_sets();
 
-        internal static void curl_shim_free_slist(IntPtr p)
-        {
-            ShimInitPlatform();
-            curl_shim_free_slist_win(p);
-        }
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_shim_free_fd_sets(IntPtr fdsets);
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_alloc_fd_sets", CallingConvention = CallingConvention.Cdecl
-         )]
-        private static extern IntPtr curl_shim_alloc_fd_sets_win();
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern CurlMultiCode curl_shim_multi_fdset(IntPtr multi, IntPtr fdsets, ref int maxFD);
 
-        internal static IntPtr curl_shim_alloc_fd_sets()
-        {
-            ShimInitPlatform();
-            return curl_shim_alloc_fd_sets_win();
-        }
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int curl_shim_select(int maxFD, IntPtr fdsets, int milliseconds);
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_free_fd_sets", CallingConvention = CallingConvention.Cdecl)
-        ]
-        private static extern void curl_shim_free_fd_sets_win(IntPtr fdsets);
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_shim_multi_info_read(IntPtr multi, ref int nMsgs);
 
-        internal static void curl_shim_free_fd_sets(IntPtr fdsets)
-        {
-            ShimInitPlatform();
-            curl_shim_free_fd_sets_win(fdsets);
-        }
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_shim_multi_info_free(IntPtr multiInfo);
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_multi_fdset", CallingConvention = CallingConvention.Cdecl)]
-        private static extern CurlMultiCode curl_shim_multi_fdset_win(IntPtr multi, IntPtr fdsets, ref int maxFD);
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int curl_shim_formadd(IntPtr[] ppForms, IntPtr[] pParams, int nParams);
 
-        internal static CurlMultiCode curl_shim_multi_fdset(IntPtr multi, IntPtr fdsets, ref int maxFD)
-        {
-            ShimInitPlatform();
-            return curl_shim_multi_fdset_win(multi, fdsets, ref maxFD);
-        }
-
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_select", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_select_win(int maxFD, IntPtr fdsets, int milliseconds);
-
-        internal static int curl_shim_select(int maxFD, IntPtr fdsets, int milliseconds)
-        {
-            ShimInitPlatform();
-            return curl_shim_select_win(maxFD, fdsets, milliseconds);
-        }
-
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_multi_info_read",
-             CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_shim_multi_info_read_win(IntPtr multi, ref int nMsgs);
-
-        internal static IntPtr curl_shim_multi_info_read(IntPtr multi, ref int nMsgs)
-        {
-            ShimInitPlatform();
-            return curl_shim_multi_info_read_win(multi, ref nMsgs);
-        }
-
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_multi_info_free",
-             CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_multi_info_free_win(IntPtr multiInfo);
-
-        internal static void curl_shim_multi_info_free(IntPtr multiInfo)
-        {
-            ShimInitPlatform();
-            curl_shim_multi_info_free_win(multiInfo);
-        }
-
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_formadd", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_formadd_win(IntPtr[] ppForms, IntPtr[] pParams, int nParams);
-
-        internal static int curl_shim_formadd(IntPtr[] ppForms, IntPtr[] pParams, int nParams)
-        {
-            ShimInitPlatform();
-            return curl_shim_formadd_win(ppForms, pParams, nParams);
-        }
-
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_install_share_delegates",
-             CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_install_share_delegates_win(
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int curl_shim_install_share_delegates(
             IntPtr pShare,
             IntPtr pThis,
             _ShimLockCallback pLock,
             _ShimUnlockCallback pUnlock);
 
-        internal static int curl_shim_install_share_delegates(
-            IntPtr pShare,
-            IntPtr pThis,
-            _ShimLockCallback pLock,
-            _ShimUnlockCallback pUnlock)
-        {
-            ShimInitPlatform();
-            return curl_shim_install_share_delegates_win(pShare, pThis, pLock, pUnlock);
-        }
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void curl_shim_cleanup_share_delegates(IntPtr pShare);
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "url_shim_cleanup_share_delegates",
-             CallingConvention = CallingConvention.Cdecl)]
-        private static extern void curl_shim_cleanup_share_delegates_win(IntPtr pShare);
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int curl_shim_get_version_int_value(IntPtr p, int offset);
 
-        internal static void curl_shim_cleanup_share_delegates(IntPtr pShare)
-        {
-            ShimInitPlatform();
-            curl_shim_cleanup_share_delegates_win(pShare);
-        }
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_shim_get_version_char_ptr(IntPtr p, int offset);
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_version_int_value",
-             CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_get_version_int_value_win(IntPtr p, int offset);
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int curl_shim_get_number_of_protocols(IntPtr p, int offset);
 
-        internal static int curl_shim_get_version_int_value(IntPtr p, int offset)
-        {
-            ShimInitPlatform();
-            return curl_shim_get_version_int_value_win(p, offset);
-        }
+        [DllImport(LIBCURLSHIM, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr curl_shim_get_protocol_string(IntPtr p, int offset, int index);
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_version_char_ptr",
-             CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_shim_get_version_char_ptr_win(IntPtr p, int offset);
+        public delegate void _ShimLockCallback(int data, int access, IntPtr userPtr);
 
-        internal static IntPtr curl_shim_get_version_char_ptr(IntPtr p, int offset)
-        {
-            ShimInitPlatform();
-            return curl_shim_get_version_char_ptr_win(p, offset);
-        }
+        public delegate void _ShimUnlockCallback(int data, IntPtr userPtr);
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_number_of_protocols",
-             CallingConvention = CallingConvention.Cdecl)]
-        private static extern int curl_shim_get_number_of_protocols_win(IntPtr p, int offset);
+        public delegate int _ShimDebugCallback(CurlInfoType infoType, IntPtr msgBuf, int msgBufSize, IntPtr parm);
 
-        internal static int curl_shim_get_number_of_protocols(IntPtr p, int offset)
-        {
-            ShimInitPlatform();
-            return curl_shim_get_number_of_protocols_win(p, offset);
-        }
+        public delegate int _ShimHeaderCallback(IntPtr buf, int sz, int nmemb, IntPtr stream);
 
-        [DllImport(CURLSHIM_LIB_WIN, EntryPoint = "curl_shim_get_protocol_string",
-             CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr curl_shim_get_protocol_string_win(IntPtr p, int offset, int index);
+        public delegate CurlIoError _ShimIoctlCallback(CurlIoCommand cmd, IntPtr parm);
 
-        internal static IntPtr curl_shim_get_protocol_string(IntPtr p, int offset, int index)
-        {
-            ShimInitPlatform();
-            return curl_shim_get_protocol_string_win(p, offset, index);
-        }
-
-        internal delegate void _ShimLockCallback(int data, int access, IntPtr userPtr);
-
-        internal delegate void _ShimUnlockCallback(int data, IntPtr userPtr);
-
-        internal delegate int _ShimDebugCallback(CurlInfoType infoType, IntPtr msgBuf, int msgBufSize, IntPtr parm);
-
-        internal delegate int _ShimHeaderCallback(IntPtr buf, int sz, int nmemb, IntPtr stream);
-
-        internal delegate CurlIoError _ShimIoctlCallback(CurlIoCommand cmd, IntPtr parm);
-
-        internal delegate int _ShimProgressCallback(
+        public delegate int _ShimProgressCallback(
             IntPtr parm,
             double dlTotal,
             double dlNow,
             double ulTotal,
             double ulNow);
 
-        internal delegate int _ShimReadCallback(IntPtr buf, int sz, int nmemb, IntPtr parm);
+        public delegate int _ShimReadCallback(IntPtr buf, int sz, int nmemb, IntPtr parm);
 
-        internal delegate int _ShimSslCtxCallback(IntPtr ctx, IntPtr parm);
+        public delegate int _ShimSslCtxCallback(IntPtr ctx, IntPtr parm);
 
-        internal delegate int _ShimWriteCallback(IntPtr buf, int sz, int nmemb, IntPtr parm);
+        public delegate int _ShimWriteCallback(IntPtr buf, int sz, int nmemb, IntPtr parm);
+
+        #endregion
+
 #endif
     }
 }

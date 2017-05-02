@@ -1661,6 +1661,54 @@ namespace CurlSharp
         }
 
         /// <summary>
+        ///     URL encode a String.
+        /// </summary>
+        /// <param name="url">The string to URL encode.</param>
+        /// <param name="length">
+        ///     Input string length;
+        ///     use 0 for cURL to determine.
+        /// </param>
+        /// <returns>A new URL encoded string.</returns>
+        /// <exception cref="NullReferenceException">
+        ///     This is thrown if
+        ///     the native <c>CURL*</c> handle wasn't created successfully.
+        /// </exception>
+        public string Escape(string url)
+        {
+            ensureHandle();
+
+            var length = System.Text.Encoding.ASCII.GetBytes(url).Length;
+            var p = NativeMethods.curl_easy_escape(_pCurl, url, length);
+            var s = Marshal.PtrToStringAnsi(p);
+            NativeMethods.curl_free(p);
+            return s;
+        }
+
+        /// <summary>
+        ///     URL decode a String.
+        /// </summary>
+        /// <param name="url">The string to URL decode.</param>
+        /// <param name="length">
+        ///     Input string length;
+        ///     use 0 for cURL to determine.
+        /// </param>
+        /// <returns>A new URL decoded string.</returns>
+        /// <exception cref="NullReferenceException">
+        ///     This is thrown if
+        ///     the native <c>CURL*</c> handle wasn't created successfully.
+        /// </exception>
+        public string Unescape(string url)
+        {
+            ensureHandle();
+            
+            var length = System.Text.Encoding.ASCII.GetBytes(url).Length;
+            var p = NativeMethods.curl_easy_unescape(_pCurl, url, length, out int outLength);
+            var s = Marshal.PtrToStringAnsi(p, outLength);
+            NativeMethods.curl_free(p);
+            return s;
+        }
+
+        /// <summary>
         ///     Get a string description of an error code.
         /// </summary>
         /// <param name="code">Error code.</param>
@@ -1963,19 +2011,19 @@ namespace CurlSharp
             _pcbSslCtx = _curlSslCtxCallback;
             _pcbIoctl = _curlIoctlCallback;
 
-            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.WriteFunction, _pcbWrite),
+            setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.WriteFunction, _pcbWrite),
                 CurlOption.WriteFunction);
-            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.ReadFunction, _pcbRead),
+            setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.ReadFunction, _pcbRead),
                 CurlOption.ReadFunction);
-            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.ProgressFunction, _pcbProgress),
+            setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.ProgressFunction, _pcbProgress),
                 CurlOption.ProgressFunction);
-            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.HeaderFunction, _pcbHeader),
+            setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.HeaderFunction, _pcbHeader),
                 CurlOption.HeaderFunction);
-            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.DebugFunction, _pcbDebug),
+            setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.DebugFunction, _pcbDebug),
                 CurlOption.DebugFunction);
-            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.SslCtxFunction, _pcbSslCtx),
+            setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.SslCtxFunction, _pcbSslCtx),
                 CurlOption.SslCtxFunction);
-            setLastError(NativeMethods.curl_easy_setopt_cb(_pCurl, CurlOption.IoctlFunction, _pcbIoctl),
+            setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.IoctlFunction, _pcbIoctl),
                 CurlOption.IoctlFunction);
             setLastError(NativeMethods.curl_easy_setopt(_pCurl, CurlOption.NoProgress, (IntPtr) 0),
                 CurlOption.NoProgress);
